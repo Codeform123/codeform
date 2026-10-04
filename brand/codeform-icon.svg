@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  码方 Codeform · 主图标「叠方」（定稿版）
+  优化：
+  - 三层方块改为等距偏移（各偏移 20），层次分明
+  - 后层透明度递增 0.35 / 0.62 / 1，形成清晰纵深
+  - 最前层内嵌完整二维码定位角（3×3 空心块 + 数据点）
+  - 线宽统一 7，圆角半径统一 20
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee"/><stop offset="55%" stop-color="#5b8cff"/><stop offset="100%" stop-color="#a06bff"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="#0a0c12"/>
+
+  <!-- 后层（左下，最淡） -->
+  <rect x="40" y="80" width="76" height="76" rx="20" fill="none" stroke="url(#g)" stroke-width="7" opacity="0.32"/>
+  <!-- 中层 -->
+  <rect x="60" y="60" width="76" height="76" rx="20" fill="none" stroke="url(#g)" stroke-width="7" opacity="0.62"/>
+  <!-- 前层（完整不透明） -->
+  <rect x="80" y="40" width="76" height="76" rx="20" fill="none" stroke="url(#g)" stroke-width="7.5"/>
+
+  <!-- 前层内：二维码定位角（左上） -->
+  <g fill="url(#g)">
+    <rect x="94" y="54" width="8" height="8"/><rect x="104" y="54" width="8" height="8"/><rect x="114" y="54" width="8" height="8"/>
+    <rect x="94" y="64" width="8" height="8"/><rect x="114" y="64" width="8" height="8"/>
+    <rect x="94" y="74" width="8" height="8"/><rect x="104" y="74" width="8" height="8"/><rect x="114" y="74" width="8" height="8"/>
+    <!-- 数据点 -->
+    <rect x="130" y="54" width="8" height="8"/>
+    <rect x="142" y="54" width="8" height="8"/>
+    <rect x="130" y="74" width="8" height="8"/>
+    <rect x="130" y="92" width="8" height="8"/>
+    <rect x="142" y="92" width="8" height="8"/>
+    <rect x="94" y="92" width="8" height="8"/>
+    <rect x="106" y="92" width="8" height="8"/>
+  </g>
+</svg>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>码方 Codeform 品牌资产总览</title>
+<style>
+  :root { --bg:#0a0c12; --panel:#141a2a; --line:rgba(120,160,255,.14); --ink:#e8edf7; --ink2:#9aa7c2; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); padding:40px 20px; line-height:1.7; }
+  .wrap { max-width:960px; margin:0 auto; }
+  h1 { font-size:24px; margin-bottom:6px; }
+  .sub { color:var(--ink2); font-size:14px; margin-bottom:36px; }
+  h2 { font-size:15px; color:var(--ink2); text-transform:uppercase; letter-spacing:1.5px; margin:32px 0 14px; padding-left:10px; border-left:3px solid #5b8cff; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  .card .stage { display:grid; place-items:center; border-radius:10px; padding:18px; min-height:130px; }
+  .stage.dark { background:#0a0c12; border:1px solid rgba(120,160,255,.12); }
+  .stage.light { background:#f5f7fb; }
+  .stage img { max-width:100%; height:auto; }
+  .card .name { font-size:13.5px; font-weight:700; }
+  .card .use { font-size:12px; color:var(--ink2); }
+  table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:12px; overflow:hidden; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); }
+  th { color:var(--ink2); font-weight:600; }
+  tr:last-child td { border-bottom:none; }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:#7dd3fc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>码方 Codeform 品牌资产</h1>
+  <div class="sub">全套 SVG 矢量源文件 + PNG 导出 · 设计语言：暗黑科技 / 蓝紫渐变 / QR 几何矩阵</div>
+
+  <h2>主 Logo（横版）</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="stage dark"><img src="logo-dark.png" style="width:300px" alt="深色版"></div>
+      <div class="name">深色背景版</div>
+      <div class="use">网站站头 · 深色分享卡 · 视频片头<br><code>logo-dark.svg / .png</code></div>
+    </div>
+    <div class="card">
+      <div class="stage light"><img src="logo-light.png" style="width:300px" alt="浅色版"></div>
+      <div class="name">浅色背景版</div>
+      <div class="use">白底文档 · 印刷 · 对外合作材料<br><code>logo-light.svg / .png</code></div>
+    </div>
+  </div>
+
+  <h2>应用图标</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="stage dark"><img src="icon-512.png" style="width:130px;border-radius:28px" alt="图标"></div>
+      <div class="name">App Icon 512×512</div>
+      <div class="use">PWA 安装图标 · 社交媒体头像 · 应用商店<br><code>logo-icon.svg / icon-512.png / -256.png</code></div>
+    </div>
+    <div class="card">
+      <div class="stage light"><img src="favicon-32.png" style="width:64px;border-radius:12px" alt="favicon"><img src="favicon-16.png" style="width:32px;border-radius:8px" alt="favicon16"></div>
+      <div class="name">Favicon 64 / 32 / 16</div>
+      <div class="use">浏览器标签页图标<br><code>favicon.svg / favicon-*.png</code></div>
+    </div>
+    <div class="card">
+      <div class="stage light"><img src="apple-touch-icon.png" style="width:110px;border-radius:24px" alt="apple"></div>
+      <div class="name">Apple Touch Icon 180×180</div>
+      <div class="use">iOS 添加到主屏幕<br><code>apple-touch-icon.png</code></div>
+    </div>
+  </div>
+
+  <h2>使用规范</h2>
+  <table>
+    <tr><th>场景</th><th>用哪个文件</th><th>备注</th></tr>
+    <tr><td>网站站头</td><td><code>favicon.svg</code>（26px 显示）</td><td>已接入主站</td></tr>
+    <tr><td>浏览器图标</td><td><code>favicon.svg</code> + PNG 兜底</td><td>已接入主站</td></tr>
+    <tr><td>社交媒体分享</td><td><code>logo-dark.png</code></td><td>og:image 已配置（1200×360 内）</td></tr>
+    <tr><td>对外头像</td><td><code>icon-512.png</code></td><td>圆角已在图内，无需再裁</td></tr>
+    <tr><td>白底材料</td><td><code>logo-light.png</code></td><td>渐变加深过，保证对比度</td></tr>
+    <tr><td>任意放大</td><td>全部 <code>.svg</code> 源文件</td><td>矢量，无限清晰</td></tr>
+  </table>
+
+  <h2>主站预览</h2>
+  <div class="card" style="align-items:center">
+    <div class="stage dark" style="width:100%"><img src="logo-dark.png" style="width:420px;max-width:100%" alt="banner"></div>
+    <div class="use" style="text-align:center">配色规范：主色 #5B8CFF → #A06BFF 渐变 · 辅色 #22D3EE · 底色 #0A0C12 · 文字 #E8EDF7</div>
+  </div>
+</div>
+</body>
+</html>
