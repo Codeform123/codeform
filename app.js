@@ -264,11 +264,19 @@
     var target = cfg.exportSize || 600;
 
     // 形状码的裁剪判定（模块坐标系；外框码时为 null）
-    var bodyKeep = null, bodyCut = 0;
+    //
+    // 注意统计口径：只能数"真的有模块、且被形状裁掉"的格子。
+    // 早期版本直接数"判定为不保留"的格子数，得出的数字毫无意义 ——
+    // 因为码区里本来就有大量空白格（没有模块），裁不裁都一样，
+    // 实测同一个形状改连通臂参数、统计值变了 36，渲染出来却像素级零差异。
+    var bodyKeep = null, bodyCut = 0, bodyMods = 0;
     if (bodyKeyOn) {
       bodyKeep = window.BodyShapes.keepFn(bodyKey, count);
-      for (var br = 0; br < count; br++) for (var bc = 0; bc < count; bc++)
+      for (var br = 0; br < count; br++) for (var bc = 0; bc < count; bc++) {
+        if (!qr.modules[br][bc]) continue;         // 空白格不参与统计
+        bodyMods++;
         if (!bodyKeep((bc + .5) / count, (br + .5) / count)) bodyCut++;
+      }
     }
 
     // ---- 异形轮廓：先按「码区占最终画布的比例」反推模块大小 ----
@@ -414,7 +422,13 @@
       canvasSize: canvasSize,    // 最终画布边长（异形时 > drawSize）
       shape: shapeKey,
       total: total,
-      cell: cell
+      cell: cell,
+      // 码点形状（bodyShape）—— 与外框是两回事，测试与排查都要能单独读到
+      bodyShape: bodyKey,
+      bodyCut: bodyCut,          // 真实有模块、且被形状裁掉的个数
+      bodyMods: bodyMods,        // 码区里真实模块总数（分母）
+      bodyRatio: (bodyKeyOn && bodyMods) ? (bodyMods - bodyCut) / bodyMods : 1,
+      ec: effEc(cfg)
     };
   }
 
@@ -1848,7 +1862,10 @@
   window.QRStudioTest = {
     buildSvg: function () { return buildSvg(getContent(), state); },
     renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); },
-    shapeKey: function () { return shapeKeyOf(state); }
+    shapeKey: function () { return shapeKeyOf(state); },
+    // 码点形状的两个独立读取口（shapeKey 只读外框，别混用）
+    bodyKey: function () { return bodyKeyOf(state); },
+    bodyOn: function () { return bodyOn(state); }
   };
 
   // ---------- 初始化 ----------
