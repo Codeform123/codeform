@@ -237,14 +237,14 @@
 
   /* ================= Tab（分段胶囊） ================= */
   .tabs {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    display: flex; flex-wrap: wrap; gap: 4px;
     padding: 5px; border-radius: 14px; margin-bottom: 20px;
     background: rgba(6, 9, 16, 0.55);
     box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 3px rgba(0,0,0,.4) inset;
   }
   .tab {
-    position: relative; text-align: center;
-    font-size: 13.5px; font-weight: 550; padding: 9px 8px; border-radius: 10px; cursor: pointer;
+    position: relative; text-align: center; flex: 1 0 auto; min-width: 62px;
+    font-size: 13.5px; font-weight: 550; padding: 9px 10px; border-radius: 10px; cursor: pointer;
     color: var(--ink-2); border: none; background: transparent;
     transition: color .22s var(--ease-out), background .22s var(--ease-out), box-shadow .22s var(--ease-out), transform .22s var(--ease-out);
     user-select: none; -webkit-tap-highlight-color: transparent;
@@ -453,6 +453,73 @@
   .meta .chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 7px var(--glow); }
   .meta .chip.g::before { background: #34d399; box-shadow: 0 0 7px rgba(52,211,153,.6); }
 
+  /* ================= 扫码解码 ================= */
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .card-head h2 { margin: 0; }
+  .mode-switch { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--surface-3); box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+  .mode-switch button {
+    appearance: none; border: 0; cursor: pointer; background: transparent;
+    color: var(--ink-2); font: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 6px 15px; border-radius: 8px; transition: color .18s var(--ease-out), background .18s var(--ease-out);
+  }
+  .mode-switch button:hover { color: var(--ink); }
+  .mode-switch button.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 4px 14px -6px var(--glow);
+  }
+
+  .scan-wrap { display: none; }
+  .scan-wrap.on { display: block; }
+  .gen-wrap.off { display: none; }
+
+  .scan-box {
+    position: relative; display: grid; place-items: center; gap: 10px;
+    padding: 40px 24px; border-radius: var(--radius); cursor: pointer;
+    text-align: center;
+    background:
+      radial-gradient(120% 100% at 50% 0%, rgba(34,211,238,.08), transparent 62%),
+      linear-gradient(180deg, rgba(6,9,16,.75), rgba(6,9,16,.55));
+    border: 1.5px dashed rgba(120,150,255,.28);
+    box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+    transition: border-color .2s var(--ease-out), background .2s var(--ease-out);
+  }
+  .scan-box:hover, .scan-box.drag { border-color: rgba(91,140,255,.62); background: rgba(91,140,255,.06); }
+  .scan-box svg { width: 38px; height: 38px; stroke: var(--accent); opacity: .9; }
+  .scan-box .t1 { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+  .scan-box .t2 { font-size: 12.5px; color: var(--ink-3); line-height: 1.7; }
+  #scanPreview {
+    max-width: 100%; max-height: 300px; border-radius: 12px; display: none;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 18px 40px -20px rgba(0,0,0,.85);
+  }
+  .scan-box.has-img #scanPreview { display: block; }
+  .scan-box.has-img .t1, .scan-box.has-img svg { display: none; }
+
+  .scan-result { margin-top: 16px; display: none; }
+  .scan-result.show { display: block; animation: qr-in .35s var(--ease-out) both; }
+  .scan-result .lbl {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--ink-3); margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+  }
+  .scan-result .lbl .tag {
+    text-transform: none; letter-spacing: 0; font-size: 11.5px;
+    background: rgba(52,211,153,.12); color: #34d399;
+    padding: 3px 9px; border-radius: 999px; font-family: "JetBrains Mono", monospace;
+  }
+  .scan-out {
+    font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px;
+    line-height: 1.65; color: var(--ink); word-break: break-all; white-space: pre-wrap;
+    background: var(--surface-3); border-radius: 10px; padding: 14px 16px;
+    max-height: 240px; overflow: auto;
+    box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+  }
+  .scan-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .scan-actions .btn { padding: 8px 14px; font-size: 12.5px; }
+
   /* ================= 按钮 ================= */
   .actions { display: flex; gap: 10px; margin-top: 12px; }
   .btn {
@@ -622,6 +689,10 @@
           <div class="tab" data-type="url">网址</div>
           <div class="tab" data-type="wifi">WiFi</div>
           <div class="tab" data-type="vcard">名片</div>
+          <div class="tab" data-type="sms">短信</div>
+          <div class="tab" data-type="tel">电话</div>
+          <div class="tab" data-type="mail">邮件</div>
+          <div class="tab" data-type="geo">位置</div>
         </div>
 
         <div id="panel-text">
@@ -656,6 +727,49 @@
           <div class="row" style="margin-top:12px">
             <div class="field"><label>公司</label><input type="text" id="vcOrg" placeholder="某某科技"></div>
             <div class="field"><label>邮箱</label><input type="text" id="vcMail" placeholder="hi@example.com"></div>
+          </div>
+        </div>
+
+        <div id="panel-sms" class="hidden">
+          <div class="row">
+            <div class="field"><label>手机号码</label><input type="tel" id="smsTel" placeholder="13800138000"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label>短信内容</label><textarea id="smsBody" placeholder="输入短信内容…" style="min-height:64px"></textarea></div>
+          </div>
+        </div>
+
+        <div id="panel-tel" class="hidden">
+          <div class="row">
+            <div class="field"><label>电话号码</label><input type="tel" id="telNum" placeholder="13800138000"></div>
+          </div>
+        </div>
+
+        <div id="panel-mail" class="hidden">
+          <div class="row">
+            <div class="field"><label>收件邮箱</label><input type="email" id="mailTo" placeholder="hi@example.com"></div>
+            <div class="field"><label>邮件主题</label><input type="text" id="mailSubj" placeholder="主题（可选）"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label>邮件正文</label><textarea id="mailBody" placeholder="正文内容（可选）" style="min-height:64px"></textarea></div>
+          </div>
+        </div>
+
+        <div id="panel-geo" class="hidden">
+          <div class="row">
+            <div class="field"><label>纬度 Latitude</label><input type="text" id="geoLat" placeholder="39.9042"></div>
+            <div class="field"><label>经度 Longitude</label><input type="text" id="geoLng" placeholder="116.4074"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field">
+              <label>快速填入（常用地点）</label>
+              <div class="seg" id="geoPreset">
+                <button data-v="39.9042,116.4074">北京</button>
+                <button data-v="31.2304,121.4737">上海</button>
+                <button data-v="22.5431,114.0579">深圳</button>
+                <button data-v="23.1291,113.2644">广州</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -743,39 +857,73 @@
     <!-- 右：预览 -->
     <div class="preview-wrap">
       <div class="card preview-card">
-        <h2>预览 Preview</h2>
-        <div class="preview-stage">
-          <div class="preview-box">
-            <span class="corner c-tl"></span><span class="corner c-tr"></span>
-            <span class="corner c-bl"></span><span class="corner c-br"></span>
-            <canvas id="qrCanvas" width="600" height="600"></canvas>
+        <div class="card-head">
+          <h2>预览 Preview</h2>
+          <div class="mode-switch" id="modeSwitch">
+            <button class="active" data-mode="gen">生成</button>
+            <button data-mode="scan">扫码</button>
           </div>
         </div>
-        <div class="preview-meta">
-          <div class="meta">
-            <span class="chip" id="versionInfo">版本 —</span>
-            <span class="chip g" id="sizeInfo">—</span>
+
+        <!-- 生成模式 -->
+        <div class="gen-wrap" id="genWrap">
+          <div class="preview-stage">
+            <div class="preview-box">
+              <span class="corner c-tl"></span><span class="corner c-tr"></span>
+              <span class="corner c-bl"></span><span class="corner c-br"></span>
+              <canvas id="qrCanvas" width="600" height="600"></canvas>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <div class="meta">
+              <span class="chip" id="versionInfo">版本 —</span>
+              <span class="chip g" id="sizeInfo">—</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="downloadPng">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              下载 PNG
+            </button>
+            <button class="btn" id="downloadSvg">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6M14 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M12 2v20"/></svg>
+              SVG
+            </button>
+          </div>
+          <div class="actions">
+            <button class="btn" id="copyImage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              复制到剪贴板
+            </button>
+            <button class="btn" id="resetAll">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
+              重置样式
+            </button>
           </div>
         </div>
-        <div class="actions">
-          <button class="btn primary" id="downloadPng">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            下载 PNG
-          </button>
-          <button class="btn" id="downloadSvg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6M14 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M12 2v20"/></svg>
-            SVG
-          </button>
-        </div>
-        <div class="actions">
-          <button class="btn" id="copyImage">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            复制到剪贴板
-          </button>
-          <button class="btn" id="resetAll">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
-            重置样式
-          </button>
+
+        <!-- 扫码模式 -->
+        <div class="scan-wrap" id="scanWrap">
+          <div class="scan-box" id="scanBox">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+            <img id="scanPreview" alt="待识别的二维码">
+            <div class="t1">拖入 / 粘贴 / 点击选择二维码图片</div>
+            <div class="t2">支持 PNG、JPG、WebP · 也可直接 Ctrl+V 粘贴截图<br>识别完全在本地完成，图片不会上传</div>
+          </div>
+          <input type="file" id="scanInput" accept="image/*" hidden>
+
+          <div class="scan-result" id="scanResult">
+            <div class="lbl">
+              <span>识别结果</span>
+              <span class="tag" id="scanType">—</span>
+            </div>
+            <div class="scan-out" id="scanOut"></div>
+            <div class="scan-actions">
+              <button class="btn" id="scanCopy">复制内容</button>
+              <button class="btn" id="scanOpen">打开链接</button>
+              <button class="btn" id="scanEdit">载入编辑器</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -812,6 +960,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="qrcode.js"></script>
+<script src="jsqr.js"></script>
 <script src="app.js"></script>
 <script>
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */

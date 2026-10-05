@@ -45,6 +45,29 @@
         lines.push('END:VCARD');
         return lines.join('\n');
       }
+      case 'sms': {
+        var sTel = ($('smsTel').value || '').trim();
+        if (!sTel) return '';
+        var sBody = $('smsBody').value || '';
+        return sBody ? 'SMSTO:' + sTel + ':' + sBody : 'SMSTO:' + sTel;
+      }
+      case 'tel': {
+        var tNum = ($('telNum').value || '').trim();
+        return tNum ? 'tel:' + tNum : '';
+      }
+      case 'mail': {
+        var mTo = ($('mailTo').value || '').trim();
+        if (!mTo) return '';
+        var mParams = [];
+        if ($('mailSubj').value) mParams.push('subject=' + encodeURIComponent($('mailSubj').value));
+        if ($('mailBody').value) mParams.push('body=' + encodeURIComponent($('mailBody').value));
+        return 'mailto:' + mTo + (mParams.length ? '?' + mParams.join('&') : '');
+      }
+      case 'geo': {
+        var gLat = ($('geoLat').value || '').trim();
+        var gLng = ($('geoLng').value || '').trim();
+        return (gLat && gLng) ? 'geo:' + gLat + ',' + gLng : '';
+      }
       default: return '';
     }
   }
@@ -167,12 +190,13 @@
   }
 
   // ---------- 事件：Tab 切换 ----------
+  var TYPES = ['text', 'url', 'wifi', 'vcard', 'sms', 'tel', 'mail', 'geo'];
   document.querySelectorAll('#tabs .tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       document.querySelectorAll('#tabs .tab').forEach(function (t) { t.classList.remove('active'); });
       tab.classList.add('active');
       state.type = tab.dataset.type;
-      ['text', 'url', 'wifi', 'vcard'].forEach(function (k) {
+      TYPES.forEach(function (k) {
         $('panel-' + k).classList.toggle('hidden', k !== state.type);
       });
       render();
@@ -180,8 +204,21 @@
   });
 
   // ---------- 事件：输入 ----------
-  ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail'].forEach(function (id) {
+  ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
+    'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
     $(id).addEventListener('input', render);
+  });
+
+  // 地理位置快捷城市
+  document.querySelectorAll('#geoPreset button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var parts = b.dataset.v.split(',');
+      $('geoLat').value = parts[0];
+      $('geoLng').value = parts[1];
+      document.querySelectorAll('#geoPreset button').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      render();
+    });
   });
 
   // WiFi 加密方式
@@ -312,6 +349,12 @@
     document.querySelectorAll('#ecLevel button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'M'); });
     document.querySelectorAll('#fgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#0a0c12'); });
     document.querySelectorAll('#bgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#ffffff'); });
+    // 清空所有内容输入
+    ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
+      'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
+      $(id).value = '';
+    });
+    document.querySelectorAll('#geoPreset button').forEach(function (b) { b.classList.remove('active'); });
     render();
     toast('已重置');
   });
@@ -325,6 +368,147 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
   }
+
+  // ---------- 模式切换：生成 / 扫码 ----------
+  document.querySelectorAll('#modeSwitch button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#modeSwitch button').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      var scan = b.dataset.mode === 'scan';
+      $('genWrap').classList.toggle('off', scan);
+      $('scanWrap').classList.toggle('on', scan);
+    });
+  });
+
+  // ---------- 扫码解码 ----------
+  var lastScanText = '';
+
+  function detectType(t) {
+    if (/^https?:\/\//i.test(t)) return '网址';
+    if (/^WIFI:/i.test(t)) return 'WiFi';
+    if (/^BEGIN:VCARD/i.test(t)) return '名片';
+    if (/^mailto:/i.test(t)) return '邮件';
+    if (/^(SMSTO|smsto):/i.test(t) || /^sms:/i.test(t)) return '短信';
+    if (/^(tel|TEL):/i.test(t)) return '电话';
+    if (/^geo:/i.test(t)) return '位置';
+    return '文本';
+  }
+
+  function showScanResult(text) {
+    lastScanText = text;
+    $('scanOut').textContent = text;
+    $('scanType').textContent = detectType(text);
+    $('scanOpen').style.display = /^https?:\/\//i.test(text) ? '' : 'none';
+    $('scanResult').classList.add('show');
+  }
+
+  function decodeImage(img) {
+    // 等比缩放到合适尺寸（过大影响性能，过小丢精度）
+    var maxSide = 1200;
+    var w = img.naturalWidth || img.width;
+    var h = img.naturalHeight || img.height;
+    var scale = Math.min(1, maxSide / Math.max(w, h));
+    var cw = Math.max(1, Math.round(w * scale));
+    var ch = Math.max(1, Math.round(h * scale));
+
+    var off = document.createElement('canvas');
+    off.width = cw; off.height = ch;
+    var octx = off.getContext('2d');
+    octx.fillStyle = '#fff';
+    octx.fillRect(0, 0, cw, ch);
+    octx.drawImage(img, 0, 0, cw, ch);
+
+    var data = octx.getImageData(0, 0, cw, ch);
+    var result = null;
+    try {
+      result = window.jsQR(data.data, cw, ch, { inversionAttempts: 'attemptBoth' });
+    } catch (e) { result = null; }
+    return result && result.data ? result.data : '';
+  }
+
+  function handleScanFile(file) {
+    if (!file || !/^image\//.test(file.type)) return toast('请选择图片文件');
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      $('scanPreview').src = url;
+      $('scanBox').classList.add('has-img');
+      var text = decodeImage(img);
+      if (text) {
+        showScanResult(text);
+        toast('识别成功');
+      } else {
+        $('scanResult').classList.remove('show');
+        toast('未识别到二维码，换张更清晰的图试试');
+      }
+    };
+    img.onerror = function () { toast('图片读取失败'); };
+    img.src = url;
+  }
+
+  $('scanBox').addEventListener('click', function () { $('scanInput').click(); });
+  $('scanInput').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (f) handleScanFile(f);
+  });
+
+  // 拖拽
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('scanBox').addEventListener(ev, function (e) { e.preventDefault(); $('scanBox').classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('scanBox').addEventListener(ev, function (e) { e.preventDefault(); $('scanBox').classList.remove('drag'); });
+  });
+  $('scanBox').addEventListener('drop', function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleScanFile(f);
+  });
+
+  // 粘贴
+  document.addEventListener('paste', function (e) {
+    if (!$('scanWrap').classList.contains('on')) return;
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image') === 0) {
+        var f = items[i].getAsFile();
+        if (f) { handleScanFile(f); e.preventDefault(); }
+        return;
+      }
+    }
+  });
+
+  $('scanCopy').addEventListener('click', function () {
+    if (!lastScanText) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(lastScanText)
+        .then(function () { toast('已复制内容'); })
+        .catch(function () { toast('复制失败'); });
+    } else {
+      toast('浏览器不支持复制');
+    }
+  });
+
+  $('scanOpen').addEventListener('click', function () {
+    if (/^https?:\/\//i.test(lastScanText)) window.open(lastScanText, '_blank', 'noopener');
+  });
+
+  // 载入编辑器：把内容回填到「文本」类型，切回生成模式
+  $('scanEdit').addEventListener('click', function () {
+    if (!lastScanText) return;
+    document.querySelectorAll('#tabs .tab').forEach(function (t) {
+      t.classList.toggle('active', t.dataset.type === 'text');
+    });
+    TYPES.forEach(function (k) { $('panel-' + k).classList.toggle('hidden', k !== 'text'); });
+    state.type = 'text';
+    $('inputText').value = lastScanText;
+    document.querySelectorAll('#modeSwitch button').forEach(function (x) {
+      x.classList.toggle('active', x.dataset.mode === 'gen');
+    });
+    $('genWrap').classList.remove('off');
+    $('scanWrap').classList.remove('on');
+    render();
+    toast('已载入编辑器，可继续编辑');
+  });
 
   // ---------- 初始化 ----------
   render();
