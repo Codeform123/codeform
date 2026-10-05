@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://codeform123.github.io/codeform/sitemap.xml
+Sitemap: https://mafangqr.com/sitemap.xml
