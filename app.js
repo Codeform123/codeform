@@ -11,6 +11,7 @@
     ecLevel: 'M',
     margin: 4,
     logoImg: null,
+    logoIcon: null,   // 内置图标键（与 logoImg 二选一，共用中心位置）
     // 第二批
     gradOn: false,
     gradA: '#0c2a6b',
@@ -127,6 +128,14 @@
   }
 
   // ---------- 绘制 ----------
+  // 中心放了 Logo / 图标时，画面中央约 22%（含衬底 ≈26%）的码字被盖住。
+  // 实测（zbar 真机解码）：M/Q 级纠错全部扫不出，只有 H（≈30% 冗余）能稳过。
+  // 所以渲染时强制 H —— 这与「好看永远不以扫不出来为代价」的原则一致，
+  // 微信码也是这么做的。UI 侧（bindSeg ecLevel）会同步锁定，避免显示与实际不一致。
+  function effEc(cfg) {
+    return (cfg.logoImg || cfg.logoIcon) ? 'H' : cfg.ecLevel;
+  }
+
   // render() 是给单张预览用的：画到页面上的 canvas，并同步更新所有 UI 文案。
   // 批量生成需要「把同样的画面画到另外的 canvas 上」，所以真正的绘制逻辑
   // 抽在 renderTo() 里 —— 它接受目标 canvas 和一份设置快照，返回绘制结果信息。 */
@@ -134,7 +143,7 @@
     var c2d = targetCanvas.getContext('2d');
     var qr;
     try {
-      qr = window.QRCore.generate(content, cfg.ecLevel);
+      qr = window.QRCore.generate(content, effEc(cfg));
     } catch (e) {
       return null;   // 内容过长，调用方决定怎么处理
     }
@@ -170,7 +179,7 @@
     c2d.fillStyle = fillStyle;
 
     var logosize = 0;
-    if (cfg.logoImg) logosize = Math.floor(drawSize * 0.22);
+    if (cfg.logoImg || cfg.logoIcon) logosize = Math.floor(drawSize * 0.22);
 
     // 定位图案区域判定（三个角 7x7）
     var inEye = {};
@@ -204,32 +213,62 @@
     drawEye(c2d, offset + (count - 7) * cell, offset, cell, cfg);
     drawEye(c2d, offset, offset + (count - 7) * cell, cell, cfg);
 
-    // Logo
-    if (cfg.logoImg) {
+    // ---- 中心 Logo：上传图片 或 内置图标（二选一，共用同一块位置）----
+    //
+    // 【设计】衬底 = 前景色实心圆角plate，图标 = 背景色镂空。
+    //   早先的实现是「衬底背景色 + 图标背景色」，白画白直接隐形；
+    //   而正确的「衬底前景色 + 图标背景色」不仅让图标清晰可见，
+    //   还把中心那块从「22% 码宽的纯背景色空洞」变成「深色实心块」——
+    //   前者会掏空纠错容量导致扫不出，后者反而像一块大码点，对解码更友好。
+    if (cfg.logoImg || cfg.logoIcon) {
       var ls = logosize;
       var lx = (drawSize - ls) / 2;
       var ly = (drawSize - ls) / 2;
       var pad = Math.max(3, ls * 0.10);
       c2d.save();
-      c2d.fillStyle = cfg.bg;
+
+      // 衬底：圆角plate。纯色时用前景色；渐变时用渐变本身（与码点同源）。
+      c2d.fillStyle = fillStyle;
       roundRect(c2d, lx - pad, ly - pad, ls + pad * 2, ls + pad * 2, pad * 1.2);
       c2d.fill();
-      c2d.beginPath();
-      c2d.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
-      c2d.closePath();
-      c2d.clip();
-      c2d.drawImage(cfg.logoImg, lx, ly, ls, ls);
+
+      // 图标/图片镂出来的部分统一用背景色 —— 和衬底形成最大反差。
+      var cut = cfg.bg;
+
+      if (cfg.logoIcon && window.IconLib) {
+        // 内置图标：用背景色在前景色衬底上"挖"出图形，任何配色下都清晰。
+        // 图标只占内接方形的 78%，四边留出与衬底相接的呼吸空间。
+        var icoBox = ls * 0.78;
+        window.IconLib.drawIcon(
+          c2d, cfg.logoIcon,
+          lx + (ls - icoBox) / 2, ly + (ls - icoBox) / 2,
+          icoBox, cut
+        );
+      } else {
+        // 上传图片：圆形裁切（原有行为）
+        c2d.beginPath();
+        c2d.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
+        c2d.closePath();
+        c2d.clip();
+        c2d.drawImage(cfg.logoImg, lx, ly, ls, ls);
+      }
       c2d.restore();
     }
 
     // 圆形/圆角绘制会产生抗锯齿灰边（实测占比约 2%），
     // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
-    // 只要不是渐变（渐变不能压成纯色，这是硬约束），形状带弧就做一次硬阈值二值化。
+    //
+    // 二值化只在「纯色前景」下做（渐变必须保留，不能压成纯色，这是硬约束）。
+    // 触发条件：码点带弧、定位图案带弧，或中心放了图标
+    // —— 图标是 50 个自写路径，曲线边缘同样需要削掉灰边才稳定。
     var needBin = !cfg.gradOn && (cfg.dotStyle === 'dot' || cfg.dotStyle === 'liquid'
-                   || cfg.eyeStyle !== 'square');
+                   || cfg.eyeStyle !== 'square' || !!cfg.logoIcon);
     if (needBin) {
       var imgData = c2d.getImageData(0, 0, drawSize, drawSize);
       var px = imgData.data;
+      // 跳过区只对「上传的位图」保留 —— 位图有上千种颜色，二值化会把照片压成
+      // 非黑即白的花斑。内置图标是前景/背景两色，本该二值化（削掉弧线灰边），
+      // 所以不再跳过。
       var logoBox = null;
       if (cfg.logoImg) {
         var lsz = logosize, lxx = (drawSize - lsz) / 2, lyy = (drawSize - lsz) / 2;
@@ -286,7 +325,8 @@
     }
 
     $('versionInfo').textContent = '版本 ' + info.size + '×' + info.size;
-    $('sizeInfo').textContent = '纠错 ' + state.ecLevel + ' · ' + info.drawSize + 'px';
+    // 中心有 Logo/图标时渲染强制用 H，文案跟着实际值走，不显示用户选的旧值
+    $('sizeInfo').textContent = '纠错 ' + effEc(state) + ' · ' + info.drawSize + 'px';
     updateContrastWarn();
     // 目标尺寸与取整后实际像素不一致时，在按钮上标个小提示
     if ($('sizes')) {
@@ -542,7 +582,24 @@
     });
   }
   bindSeg('dotStyle', 'dotStyle');
-  bindSeg('ecLevel', 'ecLevel');
+  // 纠错等级不套用通用 bindSeg：中心有 Logo/图标时必须锁 H（渲染管线强制 H），
+  // 用户若点低档位，弹提示并弹回 H，避免「界面显示 M、实际渲染 H」的错位。
+  (function () {
+    var box = $('ecLevel');
+    box.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if ((state.logoImg || state.logoIcon) && b.dataset.v !== 'H') {
+          toast('中心放了图标 / Logo，纠错等级需保持 H 才能稳定扫出');
+          syncSegUI('ecLevel', state.ecLevel);
+          return;
+        }
+        box.querySelectorAll('button').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        state.ecLevel = b.dataset.v;
+        render();
+      });
+    });
+  })();
   bindSeg('gradDir', 'gradDir');
   bindSeg('eyeStyle', 'eyeStyle');
 
@@ -771,6 +828,28 @@
   });
 
   // ---------- 事件：Logo ----------
+  // 上传图片与内置图标共用中心位置，二选一（设了新的就清掉另一个）。
+  //
+  // 中心被 Logo/图标盖住约 26% 码宽（含衬底），实测只有 H 级纠错能扛住，
+  // 所以出现 Logo 时自动把纠错切到 H 并同步 UI；移除后不自动改回（保留 H，
+  // 用户想降随时可以降 —— 反正没有 Logo 时任何档位都能扫）。
+  function lockEcToH() {
+    if (state.ecLevel !== 'H') {
+      state.ecLevel = 'H';
+      syncSegUI('ecLevel', 'H');
+    }
+  }
+  function updateLogoUI() {
+    if (state.logoIcon && window.IconLib) {
+      var ic = window.IconLib.byKey(state.logoIcon);
+      $('logoDrop').textContent = '已使用图标：' + (ic ? ic.n : state.logoIcon);
+    } else if (state.logoImg) {
+      // 上传时已写入文件名，这里不覆盖
+    } else {
+      $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
+    }
+  }
+
   $('logoDrop').addEventListener('click', function () { $('logoInput').click(); });
   $('logoInput').addEventListener('change', function (e) {
     var file = e.target.files && e.target.files[0];
@@ -780,7 +859,10 @@
       var img = new Image();
       img.onload = function () {
         state.logoImg = img;
-        $('logoDrop').textContent = '已载入：' + file.name;
+        state.logoIcon = null;          // 上传图片 → 清掉图标选中
+        clearIconSel();
+        lockEcToH();
+        $('logoDrop').textContent = '已载入：' + file.name + ' · 纠错已切换到 H';
         render();
       };
       img.src = ev.target.result;
@@ -790,8 +872,83 @@
   $('clearLogo').addEventListener('click', function () {
     state.logoImg = null;
     $('logoInput').value = '';
-    $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
+    updateLogoUI();
     render();
+  });
+
+  // ---------- 事件：内置图标库 ----------
+  function clearIconSel() {
+    document.querySelectorAll('#iconGrid .icon-cell').forEach(function (c) { c.classList.remove('sel'); });
+  }
+
+  function buildIconGrid(filter) {
+    var grid = $('iconGrid');
+    if (!grid || !window.IconLib) return;
+    grid.innerHTML = '';
+    window.IconLib.list.forEach(function (ic) {
+      if (filter && filter !== '__all' && ic.c !== filter) return;
+      var cell = document.createElement('div');
+      cell.className = 'icon-cell' + (state.logoIcon === ic.k ? ' sel' : '');
+      cell.dataset.k = ic.k;
+      cell.title = ic.n + ' · ' + ic.c;
+      // 图标预览用内联 SVG，颜色跟随 currentColor（便于 hover/选中变色）
+      cell.innerHTML = '<svg viewBox="0 0 24 24">'
+        + ic.d.map(function (d) { return '<path d="' + d + '"/>'; }).join('')
+        + '</svg>';
+      cell.addEventListener('click', function () {
+        // 再次点击已选中的图标 = 取消选择
+        if (state.logoIcon === ic.k) {
+          state.logoIcon = null;
+          clearIconSel();
+          updateLogoUI();
+          render();
+          toast('已移除图标');
+          return;
+        }
+        state.logoIcon = ic.k;
+        state.logoImg = null;           // 选图标 → 清掉上传图片
+        $('logoInput').value = '';
+        lockEcToH();                    // 中心被盖住 ≈26%，纠错必须拉到 H
+        clearIconSel();
+        cell.classList.add('sel');
+        updateLogoUI();
+        render();
+        toast('已使用图标「' + ic.n + '」· 纠错已切换到 H');
+      });
+      grid.appendChild(cell);
+    });
+  }
+
+  function buildIconFilter() {
+    var bar = $('iconFilter');
+    if (!bar || !window.IconLib) return;
+    var items = [{ k: '__all', n: '全部' }].concat(
+      window.IconLib.groups.map(function (g) { return { k: g, n: g }; })
+    );
+    items.forEach(function (it, i) {
+      var b = document.createElement('button');
+      b.textContent = it.n;
+      b.dataset.k = it.k;
+      if (i === 0) b.classList.add('active');
+      b.addEventListener('click', function () {
+        bar.querySelectorAll('button').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        buildIconGrid(it.k);
+      });
+      bar.appendChild(b);
+    });
+  }
+
+  buildIconFilter();
+  buildIconGrid('__all');
+
+  $('clearIcon').addEventListener('click', function () {
+    if (!state.logoIcon) return toast('当前没有使用图标');
+    state.logoIcon = null;
+    clearIconSel();
+    updateLogoUI();
+    render();
+    toast('已移除图标');
   });
 
   // ---------- 下载 ----------
@@ -834,7 +991,8 @@
 
   $('resetAll').addEventListener('click', function () {
     state.fg = '#0a0c12'; state.bg = '#ffffff';
-    state.dotStyle = 'square'; state.ecLevel = 'M'; state.margin = 4; state.logoImg = null;
+    state.dotStyle = 'square'; state.ecLevel = 'M'; state.margin = 4;
+    state.logoImg = null; state.logoIcon = null;
     state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
     state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#1d4ed8';
     state.exportSize = 600;
@@ -842,6 +1000,7 @@
     syncStyleUI();
     $('margin').value = 4; $('marginVal').textContent = '4';
     $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
+    clearIconSel();
     // 清空所有内容输入
     ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
@@ -927,9 +1086,14 @@
   // 样式描述，显示在统计条里，让用户明确知道会用什么样式
   function styleLabel() {
     var shape = { square: '直角', dot: '圆角', liquid: '液态' }[state.dotStyle] || '直角';
-    var s = shape + ' · 纠错' + state.ecLevel;
+    var hasLogo = !!(state.logoImg || state.logoIcon);
+    var s = shape + ' · 纠错' + (hasLogo ? 'H' : state.ecLevel);
     if (state.gradOn) s += ' · 渐变';
     if (state.logoImg) s += ' · Logo';
+    if (state.logoIcon) {
+      var ic = window.IconLib && window.IconLib.byKey(state.logoIcon);
+      s += ' · ' + (ic ? ic.n : '图标');
+    }
     return s;
   }
 
@@ -940,10 +1104,11 @@
     $('bsStyle').textContent = styleLabel();
 
     // 预估：最大内容决定版本号；顺便提示哪些行内容过长会被跳过
+    var effEcLvl = (state.logoImg || state.logoIcon) ? 'H' : state.ecLevel;
     var tooLong = [];
     for (var i = 0; i < items.length; i++) {
       var probe = window.QRCore.probe
-        ? window.QRCore.probe(items[i].content, state.ecLevel)
+        ? window.QRCore.probe(items[i].content, effEcLvl)
         : true;
       if (!probe) tooLong.push(items[i].line);
     }
@@ -968,6 +1133,7 @@
     return {
       fg: state.fg, bg: state.bg, dotStyle: state.dotStyle,
       ecLevel: state.ecLevel, margin: state.margin, logoImg: state.logoImg,
+      logoIcon: state.logoIcon,
       gradOn: state.gradOn, gradA: state.gradA, gradB: state.gradB, gradDir: state.gradDir,
       eyeStyle: state.eyeStyle, eyeOn: state.eyeOn, eyeColor: state.eyeColor,
       exportSize: state.exportSize
@@ -990,7 +1156,7 @@
   // SVG 导出（与单张导出的算法保持一致）
   function buildSvg(content, cfg) {
     var qr;
-    try { qr = window.QRCore.generate(content, cfg.ecLevel); }
+    try { qr = window.QRCore.generate(content, effEc(cfg)); }
     catch (e) { return null; }
 
     var count = qr.size, margin = cfg.margin, total = count + margin * 2;
@@ -1057,8 +1223,41 @@
     // eyeSvgMarkup()，Canvas 与 SVG 共用 ShapeMath 的同一份几何。
     out.push(eyeSvgMarkup(cfg.eyeStyle, count, margin, eyeFill));
 
+    // 中心 Logo：上传图片 或 内置图标（与画布 drawIcon 逻辑对应）。
+    // 矢量导出本来就不放用户的位图（那会变成嵌 base64 的大文件），
+    // 但内置图标是纯矢量，可以真放进 SVG 里，导出后依然清晰可缩放。
+    if (cfg.logoIcon && window.IconLib) {
+      out.push(iconSvgMarkup(cfg.logoIcon, total, fillRef, cfg.bg));
+    }
+
     out.push('</svg>');
     return out.join('');
+  }
+
+  // 中心图标的 SVG 片段。坐标单位是「模块」，与画布 0.22 码宽的占比保持一致。
+  // 衬底用前景色（或渐变 fillRef），图标用背景色镂空 —— 与画布 drawIcon 一致。
+  function iconSvgMarkup(key, total, plateFill, cutFill) {
+    var ls = total * 0.22;              // 与画布 drawSize * 0.22 对应
+    var pad = ls * 0.10;
+    var lx = (total - ls) / 2, ly = (total - ls) / 2;
+    // 衬底：前景色圆角 plate
+    var r = pad * 1.2;
+    var boxX = lx - pad, boxY = ly - pad, boxW = ls + pad * 2;
+    var backing = '<path d="' + rectPath(boxX, boxY, boxW, boxW, r) + '" fill="' + plateFill + '"/>';
+    // 图标本体占内接方形的 78%
+    var icoBox = ls * 0.78;
+    var icoX = lx + (ls - icoBox) / 2, icoY = ly + (ls - icoBox) / 2;
+    return backing + window.IconLib.iconSvg(key, icoX, icoY, icoBox, cutFill);
+  }
+
+  // 圆角矩形路径（画布 side 用，单位为模块）
+  function rectPath(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    return 'M' + (x + r) + ' ' + y
+      + 'H' + (x + w - r) + 'A' + r + ' ' + r + ' 0 0 1 ' + (x + w) + ' ' + (y + r)
+      + 'V' + (y + h - r) + 'A' + r + ' ' + r + ' 0 0 1 ' + (x + w - r) + ' ' + (y + h)
+      + 'H' + (x + r) + 'A' + r + ' ' + r + ' 0 0 1 ' + x + ' ' + (y + h - r)
+      + 'V' + (y + r) + 'A' + r + ' ' + r + ' 0 0 1 ' + (x + r) + ' ' + y + 'Z';
   }
 
   // 生成三个定位图案的 SVG 片段。
