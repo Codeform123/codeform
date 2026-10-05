@@ -63,236 +63,27 @@
 <div id="log"></div>
 
 <script src="qrcode.js"></script>
+<script src="body_shapes.js"></script>
 <script>
 /* ==========================================================================
-   形状二维码 · 实测版
+   形状二维码 · 手机实测页
    ---------------------------------------------------------------------------
-   做法：形状外的模块【不画】→ 码点自己围出形状。
-   三条硬约束（不做就扫不出）：
-     1. 三个角 8x8 定位图案必留
-     2. 定位图案要跟主体连通（走廊）
-     3. 数据容量：形状切掉的模块要靠"升版本"补 —— 所以按保留率折算选版本
+   形状逻辑【不在这里】—— 直接复用主站的 body_shapes.js，
+   保证实测的对象和产品里跑的完全同一份代码，不会两边跑偏。
+
+   本页只做三件事：选形状 → 画出来 → 给你手机扫。
    ========================================================================== */
 (function () {
   'use strict';
 
+  var BS = window.BodyShapes;                 // 主站同一份实现
   var TEXT = 'https://mafangqr.com';
+  var EC = 'H';                               // 形状码一律最高纠错
 
-  // ---------- 形状（单位坐标判定：点是否在形状内）----------
-  var SHAPES = {
-    square: function () { return true; },
-    rounded: function (x, y) {
-      var r = .11, a = Math.min(x, 1 - x), b = Math.min(y, 1 - y);
-      if (a >= r || b >= r) return true;
-      var da = r - a, db = r - b;
-      return da * da + db * db <= r * r;
-    },
-    circle: function (x, y) {
-      var a = x - .5, b = y - .5; return a * a + b * b <= .247;
-    },
-    heart: function (x, y) {
-      var a = (x - .5) / .51, b = (.5 - y) / .51;
-      var t = a * a + b * b - 1;
-      return t * t * t - a * a * b * b * b <= 0;
-    },
-    drop: function (x, y) {
-      if (y > .40) { var a = x - .5, b = y - .63; return a * a + b * b <= .355 * .355; }
-      var t = (.40 - y) / .40, w = .355 * (1 - t * t * .92) + .010;
-      return Math.abs(x - .5) <= w;
-    },
-    hexagon: function (x, y) {
-      var a = Math.abs(x - .5), b = Math.abs(y - .5);
-      return b <= .43 && a * .866 + b * .5 <= .43;
-    },
-    diamond: function (x, y) {
-      return Math.abs(x - .5) + Math.abs(y - .5) <= .495;
-    },
-    petal4: function (x, y) {
-      var a = x - .5, b = y - .5, r = Math.sqrt(a * a + b * b), th = Math.atan2(b, a);
-      return r <= .495 * (.60 + .40 * Math.abs(Math.cos(2 * th)));
-    },
-    petal8: function (x, y) {
-      var a = x - .5, b = y - .5, r = Math.sqrt(a * a + b * b), th = Math.atan2(b, a);
-      return r <= .495 * (.78 + .22 * Math.abs(Math.cos(4 * th)));
-    }
-  };
-  // 只保留经 zbar 实测能扫的形状。
-  // 菱形、尖角水滴被剔除 —— 它们把码区四个角全切了，扫码器无法建立模块网格，
-  // 试过 1~20 全部版本、静默边距 0~20% 全部组合，无一可扫（这不是调参问题，是几何不允许）。
-  var ORDER = ['square', 'rounded', 'circle', 'heart', 'petal8', 'petal4', 'hexagon'];
+  // 只列实测能扫的（菱形/尖角水滴四角全切，几何上不成立，已在主站剔除）
+  var ORDER = ['square', 'rounded', 'circle', 'heart', 'petal4', 'petal8', 'hexagon'];
   var NAME = { square: '方形（对照）', rounded: '圆角', circle: '圆形', heart: '心形',
                hexagon: '六边形', petal4: '四瓣花', petal8: '八瓣花' };
-
-  // ---------- 定位图案保护区 ----------
-  function inEye(x, y, n) {
-    var b = 8 / n;
-    return (x < b && y < b) || (x > 1 - b && y < b) || (x < b && y > 1 - b);
-  }
-
-  // ---------- 连通保护 ----------
-  // 为什么需要：定位图案（三个回形框）必须与数据区**连通**，
-  // 孤立的定位框扫码器认不出。同时定时图案那条线（第 6 行/列）被切断，
-  // 扫码器就无法判定模块尺寸 —— 这是之前一多半形状扫不出的真正原因。
-  //
-  // 之前的做法（从定位图案斜插一条走廊进中心）有三个毛病：
-  //   · 走廊穿过形状内部，在凹口处凭空长出码点，边缘毛糙
-  //   · 宽度 2.2 模块，视觉上就是三条"腿"
-  //   · 没管定时图案
-  //
-  // 现在改成"最小连通"：
-  //   · 定位图案：只保留 8x8 本区，另加 1 模块宽的贴边连接带（贴着形状内侧走）
-  //   · 定时图案：整行/整列强制保留（它是扫码器判定模块大小的标尺，动不得）
-  function inTiming(x, y, n) {
-    var m = 0.5 / n;                 // 半模块宽
-    var lo = 8 / n - m, hi = 1 - 8 / n + m;
-    // 第 6 行 / 第 6 列（0 基），落在码区中部那段
-    var row6 = Math.abs(y - 6.5 / n) <= m;
-    var col6 = Math.abs(x - 6.5 / n) <= m;
-    return (row6 && x >= lo && x <= hi) || (col6 && y >= lo && y <= hi);
-  }
-
-  // 定位图案的"连通臂"。
-  //
-  // 【为什么必须留】定位图案若与数据区断开，扫码器认不出它 ——
-  // 实测去掉后八瓣花/六边形立刻从可扫变不可扫。
-  //
-  // 【为什么不能四面扩】四面均匀外扩会在三个角撑出方块，
-  // 圆形/心形的轮廓角上出现明显凸起，形状不干净（试过 0.6 模块，太窄不够连通）。
-  //
-  // 【现在的做法】只朝码区**中心方向**伸出一条臂：
-  // 水平朝内 1.8 模块 + 垂直朝内 1.8 模块，臂宽 = 定位图案宽度。
-  // 这样既把定位图案接进主体，又完全不侵入形状外侧的轮廓。
-  function inEyeSpur(x, y, n) {
-    var b = 8 / n;             // 定位图案边长（含隔离带）
-    var reach = 2.6 / n;       // 朝内延伸的距离（1.8 时八瓣花仍不可扫，2.6 通过）
-    var boxes = [[0, 0], [1 - b, 0], [0, 1 - b]];   // 左上的三个角
-    for (var i = 0; i < 3; i++) {
-      var x0 = boxes[i][0], y0 = boxes[i][1];
-      // 朝内方向：左侧的盒子向右伸，上侧的盒子向下伸
-      var right = (x0 === 0), below = (y0 === 0);
-      var ex = right ? x0 + b + reach : x0;
-      var ey = below ? y0 + b + reach : y0;
-      if (x >= x0 && x <= ex && y >= y0 && y <= ey) return true;
-    }
-    return false;
-  }  // ---------- 校正图案位置表（与 qrcode.js 内部一致）----------
-  var ALIGN_POS = [[], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38],
-    [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62],
-    [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78],
-    [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94]];
-
-  // 校正图案（5x5 + 1 隔离）坐标集合。
-  // 【为什么必须保护】校正图案是扫码器用来矫正透视变形的基准点。
-  // 实测证据：六边形/八瓣花在 v3(n=29) 可扫，一升到 v4(n=33) 就扫不出 ——
-  // 差别就是 v4 多了一个位于 (26,26) 的校正图案，正好落在形状被裁的区域。
-  // 定位图案管"找到码"，校正图案管"摆正码"，缺一不可。
-  function alignPatterns(n) {
-    var v = (n - 17) / 4;
-    var pos = ALIGN_POS[v - 1] || [];
-    var out = [];
-    for (var i = 0; i < pos.length; i++) for (var j = 0; j < pos.length; j++) {
-      var r = pos[i], c = pos[j];
-      // 三个角上的校正图案与定位图案重叠，qrcode.js 会跳过，这里也跳过
-      if ((r <= 8 && c <= 8) || (r <= 8 && c >= n - 9) || (r >= n - 9 && c <= 8)) continue;
-      out.push([c, r]);
-    }
-    return out;
-  }
-  var alignCache = {};
-  function inAlign(x, y, n) {
-    var list = alignCache[n];
-    if (!list) list = alignCache[n] = alignPatterns(n);
-    var m = 3 / n;                    // 5x5 校正图案 + 半个隔离带
-    for (var i = 0; i < list.length; i++) {
-      var cx = (list[i][0] + .5) / n, cy = (list[i][1] + .5) / n;
-      if (Math.abs(x - cx) <= m && Math.abs(y - cy) <= m) return true;
-    }
-    return false;
-  }
-
-  // ---------- 核心保护区（与形状无关，必须完整）----------
-  // 三样东西动不得，动一个就扫不出：
-  //   1. 定位图案（管"找到码"）      2. 校正图案（管"摆正码"）
-  //   3. 定时图案（管"量出模块多大"）
-  // 另外码区四周还要留够静默边距，否则边缘扫描线找不到边界。
-  function isCore(x, y, n) {
-    return inEye(x, y, n) || inAlign(x, y, n) || inTiming(x, y, n) || inEyeSpur(x, y, n);
-  }
-
-  // ---------- 保留判定：形状 ∪ 核心保护区 ∪ 静默边距 ----------
-  // quiet：静默边距宽度（模块数）。形状码必须留一圈干净背景，
-  // 否则尖角（水滴的顶尖、菱形的四个角）会顶到画布边缘，扫码器扫不到边界。
-  function keepFn(key, n, quiet) {
-    var s = SHAPES[key];
-    var q = (quiet == null ? 2 : quiet) / n;
-    return function (x, y) {
-      if (isCore(x, y, n)) return true;
-      if (x < q || x > 1 - q || y < q || y > 1 - q) {
-        // 静默边距区：形状也要包含它，实际由"码区整体缩放"实现，这里不额外放行
-        return s(x, y);
-      }
-      return s(x, y);
-    };
-  }
-
-  // ---------- 保留率（与版本无关，用于估算容量折扣）----------
-  var keepRatioCache = {};
-  function keepRatio(key, n) {
-    var ck = key + ':' + n;
-    if (keepRatioCache[ck] != null) return keepRatioCache[ck];
-    var keep = keepFn(key, n), u = 0;
-    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++)
-      if (keep((c + .5) / n, (r + .5) / n)) u++;
-    return (keepRatioCache[ck] = u / (n * n));
-  }
-
-  // ---------- 版本选择：用实测表，不靠公式估算 ----------
-  // 为什么不用公式：形状裁掉的模块里，有一部分是"功能性图案"，损失不可线性折算，
-  // 数学建模试了 4 轮误差都超过 20%。改用最可靠的办法 —— 预先把每个形状
-  // × 每个版本真实生成并解码，把"最小可扫版本"固化下来。
-  //
-  // 版本越高的取舍：模块多了、数据能装下，但码点变小、形状被切掉的绝对模块也变多。
-  // 实测结论：能扫的形状在 v3~v4 就够装常规网址，再高反而更容易失稳。
-  // 数值来自穷举实测（probe_versions.py：每个形状 × v1~v20 真实生成 + zbar 解码）
-  var MIN_VERSION = {
-    square: 3, rounded: 3, circle: 3, heart: 3,
-    petal8: 3, petal4: 3, hexagon: 3
-  };
-
-  // 内容变长时往上抬版本。
-  //
-  // 【为什么不用"标准容量 × 留存率"折算】我试过这个公式，它把版本抬得过高：
-  // 实测 v3 明明能扫（数据装得下），公式却算成"装不下"→ 抬到 v4 → 反而扫不出。
-  // 原因是 QR 的纠错冗余本来就是**为"整码丢失一部分"设计的**，形状裁掉的那些
-  // 模块正落在纠错能力覆盖范围内，不能简单当线性损失扣掉。
-  //
-  // 所以判据只留一条硬标准：QRCore.generate 不抛错（真装得下）。
-  function pickVersion(text, ec, key) {
-    var base = MIN_VERSION[key] || 3;
-    for (var v = base; v <= 40; v++) {
-      try { window.QRCore.generate(text, ec, v); return v; }
-      catch (e) { continue; }
-    }
-    return null;
-  }
-
-  // 标准容量表（由真实生成能力预先测得，见 capTable）
-  var capTable = window.__CAP__ || null;
-
-  // 退路：没预置容量表就用"扫描式"测（慢但准），结果缓存
-  var capCache = {};
-  function stdCapacity(v, ec) {
-    if (capTable && capTable[ec]) return capTable[ec][v - 1];
-    var k = v + ec;
-    if (capCache[k] != null) return capCache[k];
-    var lo = 0, hi = 4000, best = -1;
-    while (lo <= hi) {
-      var mid = (lo + hi) >> 1;
-      try { window.QRCore.generate('a'.repeat(mid), ec, v); best = mid; lo = mid + 1; }
-      catch (e) { hi = mid - 1; }
-    }
-    return (capCache[k] = best);
-  }
 
   function utf8Bytes(s) {
     if (window.TextEncoder) return new TextEncoder().encode(String(s));
@@ -303,20 +94,20 @@
 
   // ---------- 生成 ----------
   function build(key) {
-    var ec = 'H';                        // 形状码一律用最高纠错，补偿被裁的模块
-    var v = pickVersion(TEXT, ec, key);
+    var v = BS.pickVersion(TEXT, EC, key);
     if (v == null) return { err: '内容过长，无法放进「' + NAME[key] + '」' };
-    var qr = window.QRCore.generate(TEXT, ec, v);
+    var qr = window.QRCore.generate(TEXT, EC, v);
     var n = qr.size;
-    var keep = keepFn(key, n);
-    // 统计实际绘制模块
-    var drawn = 0, out = 0;
+    var keep = BS.keepFn(key, n);
+    // 统计口径同主站：只数真实存在的模块
+    var mods = 0, cut = 0;
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) {
-      if (!keep((c + .5) / n, (r + .5) / n)) { out++; continue; }
-      drawn++;
+      if (!qr.modules[r][c]) continue;
+      mods++;
+      if (!keep((c + .5) / n, (r + .5) / n)) cut++;
     }
-    return { qr: qr, n: n, keep: keep, v: v, ec: ec,
-             keepRatio: drawn / (n * n), cut: out };
+    return { qr: qr, n: n, keep: keep, v: v, mods: mods, cut: cut,
+             keepRatio: mods ? (mods - cut) / mods : 1 };
   }
 
   // ---------- 渲染 ----------
@@ -357,15 +148,12 @@
     });
     var info = build(k);
     var meta = document.getElementById('meta');
-    if (info.err) {
-      meta.innerHTML = '<span class="warn">' + info.err + '</span>';
-      return;
-    }
+    if (info.err) { meta.innerHTML = '<span class="warn">' + info.err + '</span>'; return; }
     render(info, Math.min(window.innerWidth * 0.78, 320));
-    meta.innerHTML = '<b>' + NAME[k] + '</b> · 版本 ' + info.v + ' · 纠错 ' + info.ec
+    meta.innerHTML = '<b>' + NAME[k] + '</b> · 版本 ' + info.v + ' · 纠错 ' + EC
       + '<br>尺寸 ' + info.n + '×' + info.n + ' · 码点留存 '
-      + (info.keepRatio * 100).toFixed(0) + '%';
-    log('[' + k + '] v' + info.v + ' n' + info.n + ' keep=' + (info.keepRatio * 100).toFixed(1) + '%');
+      + (info.keepRatio * 100).toFixed(0) + '%（裁掉 ' + info.cut + '/' + info.mods + '）';
+    log('[' + k + '] v' + info.v + ' n' + info.n + ' 留存=' + (info.keepRatio * 100).toFixed(1) + '%');
   }
 
   document.getElementById('next').addEventListener('click', function () { show((cur + 1) % ORDER.length); });
@@ -380,47 +168,19 @@
     }, 'image/png');
   });
 
-  // 预置容量表（node 实测导出，避免手机端做 4000 次二分扫描）
-  window.__CAP__ = {"L":[17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,652,721,795,858,929,1003,1091,1171,1273,1367,1465,1528,1628,1732,1840,1952,2068,2188,2303,2431,2563,2699,2809,2953],"M":[14,26,42,62,84,106,122,152,180,213,251,287,331,362,412,450,504,560,624,666,711,779,857,911,997,1059,1125,1190,1264,1370,1452,1538,1628,1722,1809,1911,1989,2099,2213,2331],"Q":[11,20,32,46,60,74,86,108,130,151,177,203,241,258,292,322,364,394,442,482,509,565,611,661,715,751,805,868,908,982,1030,1112,1160,1212,1268,1336,1388,1462,1536,1663],"H":[7,14,24,34,44,58,64,84,98,119,137,155,177,194,220,250,280,310,338,382,403,439,461,511,535,593,625,658,698,742,790,842,898,958,983,1051,1093,1139,1219,1273]};
-
-  // ---------- 自动化探针出口（只读，供穷举测试用；不参与产品逻辑）----------
-  // 用途：对每个形状 × 每个版本组合真实生成并解码，找出"真正能扫的最小版本"。
-  // 只暴露纯函数，外部拿不到可变状态。
+  // ---------- 只读探针（供自动化测试）----------
   window.ShapeProbe = {
     keys: ORDER.slice(),
     name: NAME,
     text: TEXT,
-    build: function (key, version, shrink) {
+    keepRatio: function (key, n) { return BS.keepRatio(key, n); },
+    pickVersion: function (key) { return BS.pickVersion(TEXT, EC, key); },
+    build: function (key, version) {
       try {
-        var qr = window.QRCore.generate(TEXT, 'H', version);
-        var n = qr.size;
-        var keep = keepFn(key, n);
-        if (shrink != null && shrink < 1) {
-          // 诊断用：把形状朝中心收缩 shrink 倍，看收到多少才能扫
-          // x' = 0.5 + (x-0.5)/shrink  → 相当于形状变大（留白更多）
-          var sc = shrink;
-          keep = function (x, y) {
-            var nx = .5 + (x - .5) / sc, ny = .5 + (y - .5) / sc;
-            return (SHAPES[key](nx, ny) && nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1)
-              || inEye(x, y, n) || inTiming(x, y, n) || inEyeSpur(x, y, n);
-          };
-        }
-        return { ok: true, n: n, qr: qr, keep: keep };
+        var v = version || BS.pickVersion(TEXT, EC, key);
+        var qr = window.QRCore.generate(TEXT, EC, v);
+        return { ok: true, n: qr.size, v: v, qr: qr, keep: BS.keepFn(key, qr.size) };
       } catch (e) { return { ok: false, err: String(e) }; }
-    },
-    keepRatio: keepRatio,
-    pickVersion: pickVersion,
-    // 诊断用：inset 为"码区四周留白比例"。形状整体内缩，
-    // 用于验证"尖角顶到画布边缘 → 静默边距不足"这个假设。
-    keepAt: function (key, n, inset) {
-      var s = SHAPES[key];
-      var lo = inset, hi = 1 - inset, span = hi - lo;
-      return function (x, y) {
-        if (isCore(x, y, n)) return true;
-        var nx = (x - lo) / span, ny = (y - lo) / span;
-        if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return false;
-        return s(nx, ny);
-      };
     }
   };
 
