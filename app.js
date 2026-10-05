@@ -18,7 +18,7 @@
     gradDir: 'diag',
     eyeStyle: 'square',
     eyeOn: false,
-    eyeColor: '#5b8cff',
+    eyeColor: '#1d4ed8',
     exportSize: 600
   };
 
@@ -220,7 +220,12 @@
     }
 
     // 定位图案（三个角）
-    ctx.fillStyle = (state.eyeOn ? state.eyeColor : fillStyle);
+    // 定位图案是扫码器最先识别的锚点，对对比度极其敏感：
+    // 一旦它和背景太接近，整张码都会扫不出来。
+    // 这里做一层保护——如果用户选的颜色对比度低于 3:1，自动回退到前景色，
+    // 保证「好看」永远不会以「扫不出来」为代价。
+    var eyeSafe = state.eyeOn && contrast(state.eyeColor, state.bg) >= 3;
+    ctx.fillStyle = (eyeSafe ? state.eyeColor : fillStyle);
     drawEye(offset, offset, cell);
     drawEye(offset + (count - 7) * cell, offset, cell);
     drawEye(offset, offset + (count - 7) * cell, cell);
@@ -348,7 +353,17 @@
   // 参照联图二维码的三种形态重新实现：
   //   square  直角   —— 标准方块
   //   dot     圆角   —— 每个模块是独立分离的小圆点（点阵感）
-  //   liquid  液态   —— 相邻圆充分融合成连片，外轮廓呈波浪状
+  //   liquid  液态   —— 相邻模块充分融合成光滑连片，外轮廓呈水流般圆润
+  //
+  // 【液态原理】早期实现是"每格画一个半径 √2/2·cell 的圆"，
+  // 但那个半径只能让正交相邻的两圆刚好相碰，对角相邻的圆（距离 = √2·cell）
+  // 永远碰不到，于是每个角落都留下凹口，看起来是"一堆粘连的圆点"而不是液体。
+  //
+  // 正确做法：把每个模块画成**圆角方块**，并对四个角分别判断，
+  // 只有当某个角的两条正交边都**没有邻居**时才把该角圆化；
+  // 如果该角任一方向上有邻居，就把这个角填成直角，让两个格子自然焊接成整体。
+  // 这样连通区域的外轮廓就是一条光滑曲线，内部则完全连成一片，
+  // 正是水/液态表面张力的效果。
   function drawModule(x, y, cell, r, c, count, isolated, qr) {
     var style = state.dotStyle;
 
@@ -368,17 +383,48 @@
       return;
     }
 
-    // 液态：以格子中心为圆心画圆，半径放大到对角一半
-    // 相邻模块的圆会自然重叠融合成连片，形成液体表面张力般的圆润轮廓
+    // 液态：圆角方块 + 按邻接关系决定各角是否圆化
     if (style === 'liquid') {
-      var lRad = cell * 0.7072;   // ≈ √2/2，保证正交相邻的圆互相咬合
+      // 邻接（含定位图案区域，定位图案也算实心，保证边缘不被啃掉）
+      var up    = isFilled(qr, r - 1, c, count);
+      var down  = isFilled(qr, r + 1, c, count);
+      var left  = isFilled(qr, r, c - 1, count);
+      var right = isFilled(qr, r, c + 1, count);
+
+      var rad = cell * 0.5;   // 圆角半径 = 半格，圆化角即为标准四分之一圆
+      var tl = (!up && !left)  ? rad : 0;
+      var tr = (!up && !right) ? rad : 0;
+      var br = (!down && !right) ? rad : 0;
+      var bl = (!down && !left)  ? rad : 0;
+
+      var w = cell, h = cell;
       ctx.beginPath();
-      ctx.arc(x + cell / 2, y + cell / 2, lRad, 0, Math.PI * 2);
+      ctx.moveTo(x + tl, y);
+      ctx.lineTo(x + w - tr, y);
+      if (tr) ctx.arcTo(x + w, y, x + w, y + h, tr);
+      ctx.lineTo(x + w, y + h - br);
+      if (br) ctx.arcTo(x + w, y + h, x, y + h, br);
+      ctx.lineTo(x + bl, y + h);
+      if (bl) ctx.arcTo(x, y + h, x, y, bl);
+      ctx.lineTo(x, y + tl);
+      if (tl) ctx.arcTo(x, y, x + w, y, tl);
+      ctx.closePath();
       ctx.fill();
       return;
     }
 
     ctx.fillRect(x, y, cell, cell);
+  }
+
+  // 判断 (r,c) 是否属于"实心"区域：网格内为真模块，或落在三个定位图案的 7×7 内。
+  // 定位图案在码点循环里被跳过、单独绘制，但它们的位置对液态来说是实心的，
+  // 所以这里要把它们当作已填充，否则紧邻定位图案的模块会被错误地磨圆。
+  function isFilled(qr, r, c, count) {
+    if (r < 0 || c < 0 || r >= count || c >= count) return false;
+    if (r < 7 && c < 7) return true;                        // 左上定位
+    if (r < 7 && c >= count - 7) return true;               // 右上定位
+    if (r >= count - 7 && c < 7) return true;               // 左下定位
+    return !!qr.modules[r][c];
   }
 
 
@@ -607,7 +653,7 @@
         + '<stop offset="0%" stop-color="' + state.gradA + '"/>'
         + '<stop offset="100%" stop-color="' + state.gradB + '"/></linearGradient></defs>';
     }
-    var eyeFill = state.eyeOn ? state.eyeColor : fillRef;
+    var eyeFill = (state.eyeOn && contrast(state.eyeColor, state.bg) >= 3) ? state.eyeColor : fillRef;
 
     var svg = ['<?xml version="1.0" encoding="UTF-8"?>',
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" width="' + state.exportSize + '" height="' + state.exportSize + '" shape-rendering="crispEdges">',
@@ -627,8 +673,28 @@
         svg.push('<rect x="' + bx + '" y="' + by + '" width="1" height="1" fill="' + fillRef + '"/>');
       } else if (state.dotStyle === 'dot') {
         svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.55" fill="' + fillRef + '"/>');
-      } else { // liquid
-        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.7072" fill="' + fillRef + '"/>');
+      } else { // liquid：圆角方块 + 按邻接关系决定各角圆化（与画布同算法）
+        var up = isFilled(qr, r - 1, c, count);
+        var down = isFilled(qr, r + 1, c, count);
+        var left = isFilled(qr, r, c - 1, count);
+        var right = isFilled(qr, r, c + 1, count);
+        var rd = '0.5';
+        var tl = (!up && !left) ? rd : '0';
+        var tr = (!up && !right) ? rd : '0';
+        var br = (!down && !right) ? rd : '0';
+        var bl = (!down && !left) ? rd : '0';
+        var dx = bx, dy = by;
+        var d = 'M' + (dx + (+tl)) + ' ' + dy
+          + 'H' + (dx + 1 - (+tr))
+          + (tr !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1) + ' ' + (dy + (+tr)) : '')
+          + 'V' + (dy + 1 - (+br))
+          + (br !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1 - (+br)) + ' ' + (dy + 1) : '')
+          + 'H' + (dx + (+bl))
+          + (bl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + dx + ' ' + (dy + 1 - (+bl)) : '')
+          + 'V' + (dy + (+tl))
+          + (tl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + (+tl)) + ' ' + dy : '')
+          + 'Z';
+        svg.push('<path d="' + d + '" fill="' + fillRef + '"/>');
       }
     }
 
@@ -669,7 +735,7 @@
     state.fg = '#0a0c12'; state.bg = '#ffffff';
     state.dotStyle = 'square'; state.ecLevel = 'M'; state.margin = 4; state.logoImg = null;
     state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
-    state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#5b8cff';
+    state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#1d4ed8';
     state.exportSize = 600;
     $('fgColor').value = '#0a0c12'; $('bgColor').value = '#ffffff';
     $('margin').value = 4; $('marginVal').textContent = '4';
@@ -679,7 +745,7 @@
     if ($('colorGrid')) $('colorGrid').classList.remove('dim');
     $('gradA').value = '#0c2a6b'; $('gradB').value = '#2563eb';
     $('eyeOn').checked = false; $('eyeRow').classList.remove('on');
-    $('eyeColor').value = '#5b8cff';
+    $('eyeColor').value = '#1d4ed8';
     document.querySelectorAll('#gradPresets .gp').forEach(function (g) { g.classList.remove('sel'); });
     document.querySelectorAll('#dotStyle button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'square'); });
     document.querySelectorAll('#ecLevel button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'M'); });
@@ -688,7 +754,7 @@
     document.querySelectorAll('#sizes .sz').forEach(function (b) { b.classList.toggle('active', b.dataset.v === '600'); });
     document.querySelectorAll('#fgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#0a0c12'); });
     document.querySelectorAll('#bgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#ffffff'); });
-    document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#5b8cff'); });
+    document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#1d4ed8'); });
     // 清空所有内容输入
     ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
