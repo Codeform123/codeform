@@ -245,6 +245,38 @@
       ctx.restore();
     }
 
+    // 圆形/圆角绘制会产生抗锯齿灰边（实测占比约 2%），
+    // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
+    // 仅在「纯色前景 + 非圆形图案」之外的情况下做硬阈值二值化：
+    //   - 渐变色需要保留中间色，不做处理
+    //   - 直角方块本身无灰边，无需处理
+    // 需要处理的场景：dot / liquid（或非方形定位图案）+ 纯色前景
+    var needBin = !state.gradOn && (state.dotStyle === 'dot' || state.dotStyle === 'liquid'
+                   || (state.eyeOn && state.eyeStyle !== 'square'));
+    if (needBin) {
+      var imgData = ctx.getImageData(0, 0, drawSize, drawSize);
+      var px = imgData.data;
+      var logoBox = null;
+      if (state.logoImg) {
+        var lsz = logosize, lxx = (drawSize - lsz) / 2, lyy = (drawSize - lsz) / 2;
+        var lpad = Math.max(3, lsz * 0.10) + 2;
+        logoBox = { x0: lxx - lpad, y0: lyy - lpad, x1: lxx + lsz + lpad, y1: lyy + lsz + lpad };
+      }
+      var bgLum = relLum(state.bg);
+      var midLum = bgLum > 0.5 ? bgLum - 0.35 : bgLum + 0.35;   // 阈值偏向背景一侧
+      for (var yy = 0; yy < drawSize; yy++) {
+        if (logoBox && yy >= logoBox.y0 && yy <= logoBox.y1) continue;
+        for (var xx = 0; xx < drawSize; xx++) {
+          if (logoBox && xx >= logoBox.x0 && xx <= logoBox.x1) continue;
+          var idx = (yy * drawSize + xx) * 4;
+          var lum = (0.2126 * px[idx] + 0.7152 * px[idx + 1] + 0.0722 * px[idx + 2]) / 255;
+          var v = lum < midLum ? 0 : 255;
+          px[idx] = px[idx + 1] = px[idx + 2] = v;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
     $('versionInfo').textContent = '版本 ' + qr.size + '×' + qr.size;
     $('sizeInfo').textContent = '纠错 ' + state.ecLevel + ' · ' + drawSize + 'px';
     updateContrastWarn();
@@ -312,9 +344,11 @@
     ctx.fill();
   }
 
-  // 绘制单个码点
-  // isolated: 四邻皆空，可画成完整圆形/圆角形
-  // 非孤立模块：方形铺底保证连通，再按"外露的角"单独做圆角，形成连片的圆润感
+  // ================= 码点形状绘制 =================
+  // 参照联图二维码的三种形态重新实现：
+  //   square  直角   —— 标准方块
+  //   dot     圆角   —— 每个模块是独立分离的小圆点（点阵感）
+  //   liquid  液态   —— 相邻圆充分融合成连片，外轮廓呈波浪状
   function drawModule(x, y, cell, r, c, count, isolated, qr) {
     var style = state.dotStyle;
 
@@ -323,90 +357,30 @@
       return;
     }
 
-    function on(rr, cc) {
-      return rr >= 0 && rr < count && cc >= 0 && cc < count && qr.modules[rr][cc];
-    }
-
-    if (isolated) {
-      if (style === 'dot') {
-        ctx.beginPath();
-        ctx.arc(x + cell / 2, y + cell / 2, cell / 2, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        var g0 = Math.max(0.4, cell * 0.10);
-        roundRect(ctx, x + g0 / 2, y + g0 / 2, cell - g0, cell - g0, Math.max(1, (cell - g0) * 0.30));
-        ctx.fill();
-      }
-      return;
-    }
-
-    // 非孤立模块
+    // 点阵：每格缩成独立小圆（联图"圆角"即此形态）
+    // 半径下限受扫码器约束：实测 0.50~0.62 可扫，低于 0.50 会丢失模块边界。
+    // 取 0.55 兼顾「圆点感明显」与「留有余量」。
     if (style === 'dot') {
-      // 圆点模式：连片区域必须铺满以保证可扫。
-      // 对"仅单侧相连"的末梢模块，用半圆收尾，呈现圆点串珠的观感；
-      // 多侧相连的枢纽模块保持方形，避免切碎连通区。
-      var cnt = (on(r - 1, c) ? 1 : 0) + (on(r + 1, c) ? 1 : 0)
-              + (on(r, c - 1) ? 1 : 0) + (on(r, c + 1) ? 1 : 0);
-      if (cnt !== 1) { ctx.fillRect(x, y, cell, cell); return; }
-      var rad2 = cell / 2;
+      var dRad = cell * 0.55;
       ctx.beginPath();
-      if (on(r - 1, c)) {            // 上连：下方画半圆
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + cell, y);
-        ctx.lineTo(x + cell, y + cell / 2);
-        ctx.arcTo(x + cell, y + cell, x, y + cell, rad2);
-        ctx.arcTo(x, y + cell, x, y + cell / 2, rad2);
-      } else if (on(r + 1, c)) {     // 下连：上方画半圆
-        ctx.moveTo(x + cell, y + cell);
-        ctx.lineTo(x, y + cell);
-        ctx.lineTo(x, y + cell / 2);
-        ctx.arcTo(x, y, x + cell, y, rad2);
-        ctx.arcTo(x + cell, y, x + cell, y + cell / 2, rad2);
-      } else if (on(r, c - 1)) {     // 左连：右侧画半圆
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + cell / 2, y);
-        ctx.arcTo(x + cell, y, x + cell, y + cell, rad2);
-        ctx.arcTo(x + cell, y + cell, x + cell / 2, y + cell, rad2);
-        ctx.lineTo(x, y + cell);
-      } else {                        // 右连：左侧画半圆
-        ctx.moveTo(x + cell, y);
-        ctx.lineTo(x + cell / 2, y);
-        ctx.arcTo(x, y, x, y + cell, rad2);
-        ctx.arcTo(x, y + cell, x + cell / 2, y + cell, rad2);
-        ctx.lineTo(x + cell, y + cell);
-      }
-      ctx.closePath();
+      ctx.arc(x + cell / 2, y + cell / 2, dRad, 0, Math.PI * 2);
       ctx.fill();
       return;
     }
 
-    // 圆角模式：按每个外露角分别画圆角，内部角保持直角（与邻居贴合）
-    var rad = cell * 0.34;
-    var tl = !on(r - 1, c) && !on(r, c - 1);
-    var tr = !on(r - 1, c) && !on(r, c + 1);
-    var br = !on(r + 1, c) && !on(r, c + 1);
-    var bl = !on(r + 1, c) && !on(r, c - 1);
-    if (!tl && !tr && !br && !bl) { ctx.fillRect(x, y, cell, cell); return; }
+    // 液态：以格子中心为圆心画圆，半径放大到对角一半
+    // 相邻模块的圆会自然重叠融合成连片，形成液体表面张力般的圆润轮廓
+    if (style === 'liquid') {
+      var lRad = cell * 0.7072;   // ≈ √2/2，保证正交相邻的圆互相咬合
+      ctx.beginPath();
+      ctx.arc(x + cell / 2, y + cell / 2, lRad, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
 
-    ctx.beginPath();
-    // 左上
-    if (tl) { ctx.moveTo(x, y + rad); ctx.arcTo(x, y, x + rad, y, rad); }
-    else ctx.moveTo(x, y);
-    // 上边 → 右上
-    if (tr) { ctx.lineTo(x + cell - rad, y); ctx.arcTo(x + cell, y, x + cell, y + rad, rad); }
-    else ctx.lineTo(x + cell, y);
-    // 右边 → 右下
-    if (br) { ctx.lineTo(x + cell, y + cell - rad); ctx.arcTo(x + cell, y + cell, x + cell - rad, y + cell, rad); }
-    else ctx.lineTo(x + cell, y + cell);
-    // 下边 → 左下
-    if (bl) { ctx.lineTo(x + rad, y + cell); ctx.arcTo(x, y + cell, x, y + cell - rad, rad); }
-    else ctx.lineTo(x, y + cell);
-    // 左边 → 收口
-    if (tl) { ctx.lineTo(x, y + rad); }
-    else { ctx.lineTo(x, y); }
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillRect(x, y, cell, cell);
   }
+
 
   function roundRect(c, x, y, w, h, rad) {
     rad = Math.min(rad, w / 2, h / 2);
@@ -648,20 +622,13 @@
     for (var r = 0; r < count; r++) for (var c = 0; c < count; c++) {
       if (!qr.modules[r][c] || eyeMap[r + ',' + c]) continue;
       var bx = c + margin, by = r + margin;
-      // 与画布逻辑保持一致：孤立模块才做形状变化
-      var iso = !(qr.modules[r - 1] && qr.modules[r - 1][c])
-             && !(qr.modules[r + 1] && qr.modules[r + 1][c])
-             && !qr.modules[r][c - 1]
-             && !qr.modules[r][c + 1];
-      if (state.dotStyle === 'square' || !iso) {
+      // 与画布绘制逻辑保持一致
+      if (state.dotStyle === 'square') {
         svg.push('<rect x="' + bx + '" y="' + by + '" width="1" height="1" fill="' + fillRef + '"/>');
       } else if (state.dotStyle === 'dot') {
-        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.5" fill="' + fillRef + '"/>');
-      } else {
-        // 圆角方形：与画布参数保持一致（gap 0.10、圆角半径 0.27）
-        var sg = 0.10;
-        var sr = (1 - sg) * 0.30;
-        svg.push('<rect x="' + (bx + sg / 2) + '" y="' + (by + sg / 2) + '" width="' + (1 - sg) + '" height="' + (1 - sg) + '" rx="' + sr + '" fill="' + fillRef + '"/>');
+        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.55" fill="' + fillRef + '"/>');
+      } else { // liquid
+        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.7072" fill="' + fillRef + '"/>');
       }
     }
 
@@ -776,11 +743,13 @@
   }
 
   function decodeImage(img) {
-    // 等比缩放到合适尺寸（过大影响性能，过小丢精度）
-    var maxSide = 1200;
+    // 尺寸策略：小图放大、大图适度缩小。
+    // 缩小会压掉圆点/液态码型的模块间隙，所以上限放得比较宽，优先保证细节。
     var w = img.naturalWidth || img.width;
     var h = img.naturalHeight || img.height;
+    var maxSide = 2600;
     var scale = Math.min(1, maxSide / Math.max(w, h));
+    scale = Math.max(scale, 0.5);              // 至少保留一半精度
     var cw = Math.max(1, Math.round(w * scale));
     var ch = Math.max(1, Math.round(h * scale));
 
@@ -789,14 +758,71 @@
     var octx = off.getContext('2d');
     octx.fillStyle = '#fff';
     octx.fillRect(0, 0, cw, ch);
+    octx.imageSmoothingEnabled = false;
     octx.drawImage(img, 0, 0, cw, ch);
 
-    var data = octx.getImageData(0, 0, cw, ch);
-    var result = null;
-    try {
-      result = window.jsQR(data.data, cw, ch, { inversionAttempts: 'attemptBoth' });
-    } catch (e) { result = null; }
-    return result && result.data ? result.data : '';
+    var base = octx.getImageData(0, 0, cw, ch);
+
+    function tryDecode(imageData) {
+      try {
+        var r = window.jsQR(imageData.data, imageData.width, imageData.height,
+          { inversionAttempts: 'attemptBoth' });
+        return (r && r.data) ? r.data : '';
+      } catch (e) { return ''; }
+    }
+
+    // 策略一：原图直接解
+    var got = tryDecode(base);
+    if (got) return got;
+
+    // 策略二：按亮度硬阈值二值化后再解。
+    // 圆点/液态码型边缘的抗锯齿灰阶会干扰 jsQR 的采样，压实成纯黑白后识别率显著提升。
+    var copy = new ImageData(new Uint8ClampedArray(base.data), cw, ch);
+    var d = copy.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      var v = lum < 128 ? 0 : 255;
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    got = tryDecode(copy);
+    if (got) return got;
+
+    // 策略三：二值化 + 放大 1.6 倍（应对低分辨率圆点码）
+    var up = document.createElement('canvas');
+    up.width = cw * 1.6 | 0; up.height = ch * 1.6 | 0;
+    var uctx = up.getContext('2d');
+    uctx.fillStyle = '#fff'; uctx.fillRect(0, 0, up.width, up.height);
+    uctx.imageSmoothingEnabled = false;
+    uctx.drawImage(off, 0, 0, up.width, up.height);
+    var upData = uctx.getImageData(0, 0, up.width, up.height);
+    var ud = upData.data;
+    for (var j = 0; j < ud.length; j += 4) {
+      var l2 = 0.2126 * ud[j] + 0.7152 * ud[j + 1] + 0.0722 * ud[j + 2];
+      var v2 = l2 < 128 ? 0 : 255;
+      ud[j] = ud[j + 1] = ud[j + 2] = v2;
+    }
+    got = tryDecode(upData);
+    if (got) return got;
+
+    // 策略四：大图缩到 1200 再试（部分解码器偏好适中分辨率）
+    if (cw > 1200) {
+      var sm = document.createElement('canvas');
+      var sp = 1200 / cw;
+      sm.width = 1200; sm.height = Math.round(ch * sp);
+      var sctx = sm.getContext('2d');
+      sctx.fillStyle = '#fff'; sctx.fillRect(0, 0, sm.width, sm.height);
+      sctx.imageSmoothingEnabled = false;
+      sctx.drawImage(off, 0, 0, sm.width, sm.height);
+      var smData = sctx.getImageData(0, 0, sm.width, sm.height);
+      var sd = smData.data;
+      for (var k = 0; k < sd.length; k += 4) {
+        var l3 = 0.2126 * sd[k] + 0.7152 * sd[k + 1] + 0.0722 * sd[k + 2];
+        var v3 = l3 < 128 ? 0 : 255;
+        sd[k] = sd[k + 1] = sd[k + 2] = v3;
+      }
+      got = tryDecode(smData);
+    }
+    return got || '';
   }
 
   function handleScanFile(file) {
