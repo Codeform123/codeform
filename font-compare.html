@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字体方案对比 · 码方二维码</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c12; --surface: #141a2a; --surface-2: #1a2136;
+    --line: rgba(120,160,255,.14); --ink: #e8edf7; --ink-2: #9aa7c2; --ink-3: #5f6b85;
+    --accent: #5b8cff; --accent-3: #a06bff; --glow: rgba(91,140,255,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink); padding: 44px 24px 80px;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.6;
+    background-image: radial-gradient(900px 500px at 15% -10%, rgba(91,140,255,.10), transparent 60%);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 27px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
+  .lead { color: var(--ink-2); font-size: 14.5px; margin-bottom: 40px; }
+
+  .opt {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-radius: 18px; padding: 26px 28px 24px;
+    margin-bottom: 22px; position: relative; overflow: hidden;
+  }
+  .opt::before {
+    content: ""; position: absolute; inset: 0 auto auto 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+  }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  .opt-name { font-size: 17px; font-weight: 800; }
+  .opt-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px;
+    background: rgba(91,140,255,.16); color: #9dbbff; border: 1px solid rgba(91,140,255,.3);
+  }
+  .opt-badge.cur { background: rgba(120,130,150,.14); color: var(--ink-2); border-color: var(--line); }
+  .opt-note { font-size: 13px; color: var(--ink-3); margin-bottom: 20px; }
+
+  .demo { border-top: 1px dashed rgba(120,160,255,.16); padding-top: 20px; }
+  .demo .big {
+    font-size: 52px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1; margin-bottom: 14px;
+  }
+  .demo .big .grad {
+    background: linear-gradient(120deg, #7ea6ff 0%, #b58cff 55%, #4fd8f0 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .demo .mid { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 10px; }
+  .demo .body { font-size: 15px; color: var(--ink-2); max-width: 620px; margin-bottom: 14px; }
+  .demo .ui { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .demo .btn {
+    font-size: 14px; font-weight: 600; padding: 9px 20px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-3)); color: #fff;
+    box-shadow: 0 6px 18px -8px var(--glow);
+  }
+  .demo .pill {
+    font-size: 12.5px; font-weight: 500; padding: 6px 13px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink-2); background: rgba(255,255,255,.03);
+  }
+  .demo .meta { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .demo .meta .mono { font-family: var(--mono, ui-monospace, monospace); }
+
+  /* ---- 候选字体栈 ---- */
+  .f-sys .big, .f-sys .mid, .f-sys .body, .f-sys .ui, .f-sys .meta {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .f-noto, .f-noto .big, .f-noto .mid, .f-noto .body, .f-noto .ui, .f-noto .meta {
+    font-family: "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .f-mix, .f-mix .big, .f-mix .mid, .f-mix .body, .f-mix .ui, .f-mix .meta {
+    font-family: "Inter", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .f-mix .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  .tips {
+    margin-top: 34px; padding: 20px 24px; border-radius: 14px;
+    background: rgba(91,140,255,.06); border: 1px solid rgba(91,140,255,.18);
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.85;
+  }
+  .tips b { color: var(--ink); }
+  .tips code { font-family: ui-monospace, monospace; font-size: 12.5px; color: #7dd3fc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>字体方案对比</h1>
+  <div class="lead">同一段文案与同一套 UI 元素，三种字体方案并排展示。往下看，挑一个你喜欢的。</div>
+
+  <!-- 方案 1 -->
+  <div class="opt f-sys">
+    <div class="opt-head">
+      <span class="opt-name">方案 A · 系统默认</span>
+      <span class="opt-badge cur">当前在用</span>
+    </div>
+    <div class="opt-note">不加载任何网页字体，直接用用户设备的系统字体。零加载、秒开，但各平台长相不同。</div>
+    <div class="demo">
+      <div class="big">把链接，变成<span class="grad">可以被看见的设计</span></div>
+      <div class="mid">四种内容类型 · 自由配色 · Logo 嵌入</div>
+      <div class="body">你的内容从始至终不离开浏览器 —— 干净、克制、专业。纯本地生成，无需注册，不上传不留存。</div>
+      <div class="ui">
+        <span class="btn">生成二维码</span>
+        <span class="pill">纯本地生成</span>
+        <span class="pill">实时预览</span>
+      </div>
+      <div class="meta">纠错等级 M · 尺寸 <span class="mono">25×25</span> · 版本 2</div>
+    </div>
+  </div>
+
+  <!-- 方案 2 -->
+  <div class="opt f-noto">
+    <div class="opt-head">
+      <span class="opt-name">方案 B · 思源黑体 Noto Sans SC</span>
+      <span class="opt-badge">全平台统一</span>
+    </div>
+    <div class="opt-note">Google 开源中文字体，免费商用。字形现代、笔画干净，中文字重齐全（400/500/700/900），比系统字体更整齐。</div>
+    <div class="demo">
+      <div class="big">把链接，变成<span class="grad">可以被看见的设计</span></div>
+      <div class="mid">四种内容类型 · 自由配色 · Logo 嵌入</div>
+      <div class="body">你的内容从始至终不离开浏览器 —— 干净、克制、专业。纯本地生成，无需注册，不上传不留存。</div>
+      <div class="ui">
+        <span class="btn">生成二维码</span>
+        <span class="pill">纯本地生成</span>
+        <span class="pill">实时预览</span>
+      </div>
+      <div class="meta">纠错等级 M · 尺寸 <span class="mono">25×25</span> · 版本 2</div>
+    </div>
+  </div>
+
+  <!-- 方案 3 -->
+  <div class="opt f-mix">
+    <div class="opt-head">
+      <span class="opt-name">方案 C · Inter + 思源黑体</span>
+      <span class="opt-badge">推荐</span>
+    </div>
+    <div class="opt-note">英文/数字用 Inter（Linear、Vercel、Figma 同款），中文用思源黑体，参数用 JetBrains Mono。当下「高级工具站」的标准配置。</div>
+    <div class="demo">
+      <div class="big">把链接，变成<span class="grad">可以被看见的设计</span></div>
+      <div class="mid">四种内容类型 · 自由配色 · Logo 嵌入</div>
+      <div class="body">你的内容从始至终不离开浏览器 —— 干净、克制、专业。纯本地生成，无需注册，不上传不留存。</div>
+      <div class="ui">
+        <span class="btn">生成二维码</span>
+        <span class="pill">纯本地生成</span>
+        <span class="pill">实时预览</span>
+      </div>
+      <div class="meta">纠错等级 M · 尺寸 <span class="mono">25×25</span> · 版本 2</div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <b>怎么看差别？</b>重点盯这几处：<br>
+    · <b>「把链接，变成」这行大字</b>——看笔画的粗细对比与收笔（方案 C 的字母与汉字更"紧实"）<br>
+    · <b>数字与英文</b>——方案 C 的 <code>Inter</code> 更规整，方案 A 在 Windows 上会偏细<br>
+    · <b>按钮文字</b>——方案 C 的字重过渡更平滑<br><br>
+    <b>代价说明：</b>方案 B / C 首次加载会多 100–300KB（字体文件），之后走浏览器缓存。对工具站来说这个代价很小，换来的是所有人的观感一致。
+  </div>
+</div>
+</body>
+</html>

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>码方二维码 Codeform — 免费在线二维码生成器</title>
 <meta name="description" content="码方二维码 —— 免费在线二维码生成器，纯本地生成：实时预览、自由美化、Logo 嵌入。文件不上传，隐私零泄露。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="brand/favicon-16.png">
@@ -92,7 +95,9 @@
   html { scroll-behavior: smooth; }
   html, body { height: 100%; }
   body {
-    font-family: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-family: "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variant-numeric: tabular-nums;
     background: var(--bg);
     color: var(--ink);
     line-height: 1.6;
@@ -167,40 +172,36 @@
   .pill:hover { color: var(--ink); background: rgba(255,255,255,.075); }
   .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.15), 0 0 9px #34d399; }
 
-  /* ================= Hero 首屏标语 ================= */
-  .hero { text-align: center; padding: 34px 8px 42px; position: relative; }
-  .hero .eyebrow {
+  /* ================= 底部介绍区 ================= */
+  .hero-bottom {
+    text-align: center; margin-top: 46px; padding: 46px 24px 40px;
+    border-top: 1px solid var(--line);
+    position: relative;
+  }
+  .hero-bottom .eyebrow {
     display: inline-flex; align-items: center; gap: 9px;
     font-size: 12.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--ink-2); padding: 8px 16px; border-radius: 999px;
     background: var(--surface-3); box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
-    margin-bottom: 26px;
+    margin-bottom: 22px;
   }
-  .hero .eyebrow .spark {
+  .hero-bottom .eyebrow .spark {
     width: 15px; height: 15px; border-radius: 5px; background: var(--grad);
     box-shadow: 0 0 14px var(--glow); flex-shrink: 0;
   }
-  .hero h2 {
-    font-size: clamp(34px, 5vw, 58px); font-weight: 800; line-height: 1.06;
-    letter-spacing: -0.035em; margin-bottom: 22px;
+  .hero-bottom h2 {
+    font-size: clamp(26px, 3.4vw, 40px); font-weight: 800; line-height: 1.15;
+    letter-spacing: -0.03em; margin-bottom: 18px;
   }
-  .hero h2 .grad {
+  .hero-bottom h2 .grad {
     background: linear-gradient(120deg, #7ea6ff 0%, #b58cff 55%, #4fd8f0 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     -webkit-text-fill-color: transparent;
   }
-  .hero p {
+  .hero-bottom p {
     max-width: 560px; margin: 0 auto; color: var(--ink-2);
-    font-size: 16.5px; line-height: 1.7; letter-spacing: -0.01em;
+    font-size: 15.5px; line-height: 1.7; letter-spacing: -0.01em;
   }
-  .hero .scroll-cue {
-    display: inline-flex; align-items: center; gap: 8px; margin-top: 30px;
-    font-size: 12.5px; color: var(--ink-3); letter-spacing: .04em;
-    transition: color .2s var(--ease-out);
-  }
-  .hero .scroll-cue:hover { color: var(--ink-2); }
-  .hero .scroll-cue svg { width: 15px; height: 15px; animation: bob 2.4s var(--ease-soft) infinite; }
-  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
 
   /* ================= 主布局 ================= */
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) 396px; gap: 24px; align-items: start; }
@@ -340,6 +341,10 @@
     transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out);
   }
   input[type="color"]:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 0 0 1px var(--accent), 0 8px 16px -5px rgba(0,0,0,.7); }
+  /* 取色器被选中时（无 .sw 选中），也显示强调色环 */
+  .swatches.picked input[type="color"] {
+    box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--accent), 0 0 18px -2px var(--glow);
+  }
   input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type="color"]::-webkit-color-swatch { border: none; border-radius: 8px; }
 
@@ -441,6 +446,8 @@
     display: inline-flex; align-items: center; gap: 6px;
     background: var(--surface-3); border-radius: 8px; padding: 5px 11px;
     box-shadow: 0 1px 0 rgba(255,255,255,.045) inset;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; letter-spacing: -.01em;
     font-variant-numeric: tabular-nums;
   }
   .meta .chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 7px var(--glow); }
@@ -559,8 +566,8 @@
     .preview-box .corner { width: 13px; height: 13px; }
     .preview-box .c-tl, .preview-box .c-tr { top: 11px; } .preview-box .c-tl, .preview-box .c-bl { left: 11px; }
     .preview-box .c-tr, .preview-box .c-br { right: 11px; } .preview-box .c-bl, .preview-box .c-br { bottom: 11px; }
-    .hero { padding: 22px 4px 32px; }
-    .hero p { font-size: 15px; }
+    .hero-bottom { margin-top: 34px; padding: 34px 14px 30px; }
+    .hero-bottom p { font-size: 14.5px; }
     .brand h1 { font-size: 23px; }
     .brand .sub { letter-spacing: 8px; margin-right: -8px; font-size: 10px; }
     .logo { width: 50px; height: 50px; border-radius: 15px; }
@@ -604,17 +611,6 @@
       <span class="pill">实时预览</span>
     </div>
   </header>
-
-  <!-- Hero 首屏 -->
-  <section class="hero">
-    <div class="eyebrow"><span class="spark"></span>纯本地 · 无广告 · 免费</div>
-    <h2>把链接，变成<br><span class="grad">可以被看见的设计</span></h2>
-    <p>四种内容类型、自由配色、Logo 嵌入与矢量导出。你的内容从始至终不离开浏览器 —— 干净、克制、专业。</p>
-    <a class="scroll-cue" href="#studio">
-      开始制作
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-    </a>
-  </section>
 
   <div class="grid" id="studio">
     <!-- 左：配置 -->
@@ -677,12 +673,12 @@
               <label>前景色</label>
               <div class="swatches" id="fgSwatches">
                 <input type="color" id="fgColor" value="#0a0c12">
-                <div class="sw sel" data-c="#0a0c12" style="background:#0a0c12"></div>
-                <div class="sw" data-c="#1e3a8a" style="background:#1e3a8a"></div>
-                <div class="sw" data-c="#7c3aed" style="background:#7c3aed"></div>
-                <div class="sw" data-c="#be123c" style="background:#be123c"></div>
-                <div class="sw" data-c="#047857" style="background:#047857"></div>
-                <div class="sw" data-c="#b45309" style="background:#b45309"></div>
+                <div class="sw sel" data-c="#0a0c12" data-tone="dark" style="background:#0a0c12"></div>
+                <div class="sw" data-c="#1e3a8a" data-tone="dark" style="background:#1e3a8a"></div>
+                <div class="sw" data-c="#7c3aed" data-tone="dark" style="background:#7c3aed"></div>
+                <div class="sw" data-c="#be123c" data-tone="dark" style="background:#be123c"></div>
+                <div class="sw" data-c="#047857" data-tone="dark" style="background:#047857"></div>
+                <div class="sw" data-c="#b45309" data-tone="dark" style="background:#b45309"></div>
               </div>
             </div>
 
@@ -803,6 +799,13 @@
     </div>
   </div>
 
+  <!-- 底部介绍区（原 Hero，移至页脚上方） -->
+  <section class="hero-bottom">
+    <div class="eyebrow"><span class="spark"></span>纯本地 · 无广告 · 免费</div>
+    <h2>把链接，变成<span class="grad">可以被看见的设计</span></h2>
+    <p>四种内容类型、自由配色、Logo 嵌入与矢量导出。你的内容从始至终不离开浏览器 —— 干净、克制、专业。</p>
+  </section>
+
   <footer>码方二维码 Codeform<span class="sep">·</span>纯本地生成，无需注册<span class="sep">|</span>内容不上传 · 完全本地处理</footer>
 </div>
 
@@ -814,6 +817,41 @@
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */
 (function () {
   'use strict';
+
+  // 0. 色块选中态亮度自适应（深色底用白勾，浅色底用黑勾）
+  function applyTone(el, hex) {
+    if (!el || !hex) return;
+    var h = hex.replace('#', '');
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var r = parseInt(h.substr(0,2),16), g = parseInt(h.substr(2,2),16), b = parseInt(h.substr(4,2),16);
+    // 相对亮度（WCAG）
+    var lum = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+    el.setAttribute('data-tone', lum > 0.55 ? 'light' : 'dark');
+  }
+  function initSwatchTone(containerId) {
+    var c = document.getElementById(containerId);
+    if (!c) return;
+    var sync = function () {
+      c.querySelectorAll('.sw').forEach(function (sw) {
+        applyTone(sw, sw.dataset.c || sw.style.background);
+      });
+    };
+    sync();
+    // 自定义取色器改变时，为“当前选中”生成一个动态色块勾选样式
+    var picker = c.querySelector('input[type="color"]');
+    if (picker) picker.addEventListener('input', function () {
+      applyTone(picker, picker.value);
+      c.classList.add('picked');
+    });
+    // 点击色块后同步（app.js 会改 sel 类，这里只补 tone）
+    c.addEventListener('click', function (e) {
+      if (e.target.classList && e.target.classList.contains('sw')) c.classList.remove('picked');
+      setTimeout(sync, 0);
+    }, true);
+  }
+  initSwatchTone('fgSwatches');
+  initSwatchTone('bgSwatches');
+
   // 1. 滑杆渐变填充
   var range = document.getElementById('margin');
   function paintRange() {
