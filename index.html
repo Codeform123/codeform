@@ -348,6 +348,101 @@
   input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type="color"]::-webkit-color-swatch { border: none; border-radius: 8px; }
 
+  /* ================= 渐变开关 + 预设 ================= */
+  .grad-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+    padding: 11px 13px; border-radius: 11px; background: var(--surface-3);
+    box-shadow: 0 1px 0 rgba(255,255,255,.045) inset;
+  }
+  .grad-toggle .lbl-t { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .grad-toggle .lbl-s { font-size: 11.5px; color: var(--ink-4); margin-top: 2px; }
+
+  .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
+    background: rgba(255,255,255,.11);
+    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
+    transition: background .22s var(--ease-out);
+  }
+  .switch .track::before {
+    content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px;
+    border-radius: 50%; background: #cfd8ea;
+    box-shadow: 0 2px 6px -1px rgba(0,0,0,.6);
+    transition: transform .22s var(--ease-out), background .22s var(--ease-out);
+  }
+  .switch input:checked + .track {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 4px 14px -6px var(--glow), 0 0 0 1px rgba(255,255,255,.1) inset;
+  }
+  .switch input:checked + .track::before { transform: translateX(18px); background: #fff; }
+
+  .grad-presets { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 8px; }
+  .grad-presets-label {
+    font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-4); margin-bottom: 9px;
+  }
+  .gp {
+    width: 62px; height: 34px; border-radius: 9px; cursor: pointer; position: relative;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.10), 0 4px 10px -4px rgba(0,0,0,.6);
+    transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out);
+  }
+  .gp:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 0 0 1px rgba(255,255,255,.28), 0 8px 16px -5px rgba(0,0,0,.7); }
+  .gp.sel { box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--accent), 0 0 18px -2px var(--glow); }
+  .gp.sel::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/38% no-repeat;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.55));
+  }
+
+  .grad-row { display: none; }
+  .grad-row.on { display: block; animation: group-in .3s var(--ease-out) both; }
+  @keyframes group-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* 渐变开启时弱化纯色前景选择，避免误以为还能生效 */
+  .style-grid.dim { opacity: .38; filter: saturate(.5); transition: opacity .25s var(--ease-out), filter .25s var(--ease-out); }
+  .style-grid { transition: opacity .25s var(--ease-out), filter .25s var(--ease-out); }
+
+  .grad-dir { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .grad-dir .seg { flex: 1; }
+
+  /* ================= 对比度提示 ================= */
+  .contrast-warn {
+    display: none; align-items: flex-start; gap: 9px;
+    margin-top: 14px; padding: 11px 13px; border-radius: 11px;
+    font-size: 12.5px; line-height: 1.6;
+    background: rgba(251,191,36,.10); border: 1px solid rgba(251,191,36,.28);
+    color: #fcd34d;
+  }
+  .contrast-warn.on { display: flex; animation: group-in .28s var(--ease-out) both; }
+  .contrast-warn.risk { background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.3); color: #fca5a5; }
+  .contrast-warn svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; }
+  .contrast-warn b { font-weight: 600; }
+
+  /* ================= 导出尺寸 ================= */
+  .sizes { display: flex; gap: 7px; flex-wrap: wrap; }
+  .sz {
+    flex: 1 0 auto; min-width: 62px; padding: 9px 8px; border-radius: 10px; cursor: pointer;
+    text-align: center; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    background: var(--surface-3); border: 1px solid transparent;
+    transition: color .18s var(--ease-out), background .18s var(--ease-out), border-color .18s var(--ease-out);
+  }
+  .sz:hover { color: var(--ink); background: rgba(255,255,255,.065); }
+  .sz.active {
+    color: #fff; border-color: rgba(91,140,255,.5);
+    background: linear-gradient(135deg, rgba(91,140,255,.22), rgba(34,211,238,.14));
+    box-shadow: 0 4px 16px -8px var(--glow);
+  }
+  /* 目标尺寸与取整实际值不一致时，右上角加个小点 */
+  .sz { position: relative; }
+  .sz.adjusted::after {
+    content: ""; position: absolute; top: 5px; right: 6px;
+    width: 4px; height: 4px; border-radius: 50%; background: var(--accent-2);
+    box-shadow: 0 0 6px var(--glow-soft);
+  }
+
   /* ================= 滑杆（自定义） ================= */
   input[type="range"] {
     -webkit-appearance: none; appearance: none;
@@ -782,9 +877,33 @@
         <!-- 组：配色 -->
         <div class="group">
           <div class="group-label">配色</div>
-          <div class="style-grid">
+
+          <div class="grad-toggle">
+            <div>
+              <div class="lbl-t">渐变填充</div>
+              <div class="lbl-s">用两色渐变绘制码点，观感更立体</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="gradOn">
+              <span class="track"></span>
+            </label>
+          </div>
+
+          <div class="grad-presets-label">配色方案</div>
+          <div class="grad-presets" id="gradPresets">
+            <div class="gp" title="海洋蓝" data-a="#0c2a6b" data-b="#2563eb" style="background:linear-gradient(135deg,#0c2a6b,#2563eb)"></div>
+            <div class="gp" title="靛紫" data-a="#4c1d95" data-b="#7c3aed" style="background:linear-gradient(135deg,#4c1d95,#7c3aed)"></div>
+            <div class="gp" title="玫红" data-a="#7f1d1d" data-b="#be123c" style="background:linear-gradient(135deg,#7f1d1d,#be123c)"></div>
+            <div class="gp" title="森绿" data-a="#064e3b" data-b="#047857" style="background:linear-gradient(135deg,#064e3b,#047857)"></div>
+            <div class="gp" title="琥珀" data-a="#78350f" data-b="#b45309" style="background:linear-gradient(135deg,#78350f,#b45309)"></div>
+            <div class="gp" title="青蓝" data-a="#0c3d5e" data-b="#0369a1" style="background:linear-gradient(135deg,#0c3d5e,#0369a1)"></div>
+            <div class="gp" title="午夜蓝" data-a="#0a0c12" data-b="#334155" style="background:linear-gradient(135deg,#0a0c12,#334155)"></div>
+            <div class="gp" title="葡萄酒" data-a="#4c0519" data-b="#9f1239" style="background:linear-gradient(135deg,#4c0519,#9f1239)"></div>
+          </div>
+
+          <div class="style-grid" id="colorGrid">
             <div class="field">
-              <label>前景色</label>
+              <label id="fgLabel">前景色</label>
               <div class="swatches" id="fgSwatches">
                 <input type="color" id="fgColor" value="#0a0c12">
                 <div class="sw sel" data-c="#0a0c12" data-tone="dark" style="background:#0a0c12"></div>
@@ -807,6 +926,36 @@
                 <div class="sw" data-c="#000000" data-tone="dark" style="background:#000000"></div>
               </div>
             </div>
+          </div>
+
+          <div class="grad-row" id="gradRow">
+            <div class="style-grid" style="margin-top:16px">
+              <div class="field">
+                <label>渐变起点</label>
+                <div class="swatches">
+                  <input type="color" id="gradA" value="#0c2a6b">
+                </div>
+              </div>
+              <div class="field">
+                <label>渐变终点</label>
+                <div class="swatches">
+                  <input type="color" id="gradB" value="#2563eb">
+                </div>
+              </div>
+            </div>
+            <div class="grad-dir" style="margin-top:16px">
+              <label style="font-size:12.5px;color:var(--ink-3);font-weight:600;white-space:nowrap">方向</label>
+              <div class="seg" id="gradDir">
+                <button class="active" data-v="diag">↘ 对角</button>
+                <button data-v="h">→ 横向</button>
+                <button data-v="v">↓ 纵向</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="contrast-warn" id="contrastWarn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+            <span id="contrastMsg"></span>
           </div>
         </div>
 
@@ -833,6 +982,43 @@
           </div>
         </div>
 
+        <!-- 组：定位图案 -->
+        <div class="group">
+          <div class="group-label">定位图案</div>
+          <div class="field" style="margin-bottom:18px">
+            <label>形状 <span style="color:var(--ink-4);font-weight:400">（三个角的回形框）</span></label>
+            <div class="seg" id="eyeStyle">
+              <button class="active" data-v="square">方形</button>
+              <button data-v="rounded">圆角</button>
+              <button data-v="dot">圆点</button>
+            </div>
+          </div>
+          <div class="grad-toggle" style="margin-bottom:14px">
+            <div>
+              <div class="lbl-t">独立配色</div>
+              <div class="lbl-s">让定位图案与码点颜色不同</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="eyeOn">
+              <span class="track"></span>
+            </label>
+          </div>
+          <div class="grad-row" id="eyeRow">
+            <div class="field">
+              <label>定位图案颜色</label>
+              <div class="swatches" id="eyeSwatches">
+                <input type="color" id="eyeColor" value="#5b8cff">
+                <div class="sw sel" data-c="#5b8cff" data-tone="dark" style="background:#5b8cff"></div>
+                <div class="sw" data-c="#22d3ee" data-tone="dark" style="background:#22d3ee"></div>
+                <div class="sw" data-c="#a06bff" data-tone="dark" style="background:#a06bff"></div>
+                <div class="sw" data-c="#ff3d81" data-tone="dark" style="background:#ff3d81"></div>
+                <div class="sw" data-c="#0a0c12" data-tone="dark" style="background:#0a0c12"></div>
+                <div class="sw" data-c="#ffffff" data-tone="light" style="background:#ffffff"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 组：细节 -->
         <div class="group">
           <div class="group-label">细节</div>
@@ -841,6 +1027,16 @@
             <div class="slider-row">
               <input type="range" id="margin" min="0" max="8" value="4">
               <span class="val" id="marginVal">4</span>
+            </div>
+          </div>
+
+          <div class="field" style="margin-bottom:18px">
+            <label>导出尺寸 <span style="color:var(--ink-4);font-weight:400">（PNG / SVG）</span></label>
+            <div class="sizes" id="sizes">
+              <div class="sz" data-v="300">300</div>
+              <div class="sz active" data-v="600">600</div>
+              <div class="sz" data-v="1024">1024</div>
+              <div class="sz" data-v="2048">2048</div>
             </div>
           </div>
 
@@ -1000,6 +1196,7 @@
   }
   initSwatchTone('fgSwatches');
   initSwatchTone('bgSwatches');
+  initSwatchTone('eyeSwatches');
 
   // 1. 滑杆渐变填充
   var range = document.getElementById('margin');
@@ -1023,10 +1220,13 @@
     void canvas.offsetWidth;
     canvas.classList.add('pulse');
   }
-  var pulseIds = ['fgColor', 'bgColor', 'dotStyle', 'ecLevel', 'margin'];
+  var pulseIds = ['fgColor', 'bgColor', 'dotStyle', 'ecLevel', 'margin',
+    'gradOn', 'gradA', 'gradB', 'gradDir', 'eyeOn', 'eyeColor', 'eyeStyle',
+    'gradPresets', 'eyeSwatches', 'sizes'];
   pulseIds.forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', pulse);
+    if (el) el.addEventListener('click', pulse);
   });
 
   // 3. 下载成功：按钮变绿 + 打勾反馈

@@ -10,7 +10,16 @@
     dotStyle: 'square',
     ecLevel: 'M',
     margin: 4,
-    logoImg: null
+    logoImg: null,
+    // 第二批
+    gradOn: false,
+    gradA: '#0c2a6b',
+    gradB: '#2563eb',
+    gradDir: 'diag',
+    eyeStyle: 'square',
+    eyeOn: false,
+    eyeColor: '#5b8cff',
+    exportSize: 600
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -73,6 +82,50 @@
   }
   function esc(s) { return String(s).replace(/([\\;,:"])/g, '\\$1'); }
 
+  // ---------- 对比度检测（保证导出的码真的能扫） ----------
+  function relLum(hex) {
+    var h = String(hex).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    function ch(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * ch(parseInt(h.substr(0, 2), 16))
+         + 0.7152 * ch(parseInt(h.substr(2, 2), 16))
+         + 0.0722 * ch(parseInt(h.substr(4, 2), 16));
+  }
+  function contrast(a, b) {
+    var l1 = relLum(a), l2 = relLum(b);
+    if (l1 < l2) { var t = l1; l1 = l2; l2 = t; }
+    return (l1 + 0.05) / (l2 + 0.05);
+  }
+
+  // 取当前实际用于码点的颜色（渐变时取对比度最差的一端）
+  function worstContrast() {
+    var bg = state.bg;
+    var list = [];
+    if (state.gradOn) list.push(state.gradA, state.gradB);
+    else list.push(state.fg);
+    if (state.eyeOn) list.push(state.eyeColor);
+    var w = Infinity;
+    for (var i = 0; i < list.length; i++) w = Math.min(w, contrast(list[i], bg));
+    return w;
+  }
+
+  function updateContrastWarn() {
+    var el = $('contrastWarn');
+    var msg = $('contrastMsg');
+    if (!el || !msg) return;
+    var r = worstContrast();
+    if (r < 3) {
+      el.classList.add('on', 'risk');
+      msg.innerHTML = '<b>对比度过低（' + r.toFixed(1) + ':1），可能扫不出来</b><br>前景与背景亮度太接近。建议换更深的颜色，或改用浅色背景。';
+    } else if (r < 4.5) {
+      el.classList.add('on');
+      el.classList.remove('risk');
+      msg.innerHTML = '<b>对比度偏低（' + r.toFixed(1) + ':1）</b><br>多数设备能扫，但光线差时可能失败。建议再加深一点。';
+    } else {
+      el.classList.remove('on', 'risk');
+    }
+  }
+
   // ---------- 绘制 ----------
   function render() {
     var content = getContent();
@@ -88,6 +141,7 @@
       ctx.fillText('请输入内容生成二维码', canvas.width / 2, canvas.height / 2);
       $('versionInfo').textContent = '版本 —';
       $('sizeInfo').textContent = '—';
+      updateContrastWarn();
       return;
     }
 
@@ -109,7 +163,7 @@
     var margin = state.margin;
     var total = count + margin * 2;
     // 画布尺寸：以 module 整数倍绘制保证清晰
-    var target = 600;
+    var target = state.exportSize || 600;
     var cell = Math.floor(target / total);
     if (cell < 1) cell = 1;
     var drawSize = cell * total;
@@ -122,20 +176,54 @@
     ctx.fillRect(0, 0, drawSize, drawSize);
 
     var offset = margin * cell;
-    ctx.fillStyle = state.fg;
+
+    // 渐变填充准备
+    var fillStyle = state.fg;
+    if (state.gradOn) {
+      var g;
+      if (state.gradDir === 'h') g = ctx.createLinearGradient(0, 0, drawSize, 0);
+      else if (state.gradDir === 'v') g = ctx.createLinearGradient(0, 0, 0, drawSize);
+      else g = ctx.createLinearGradient(0, 0, drawSize, drawSize);
+      g.addColorStop(0, state.gradA);
+      g.addColorStop(1, state.gradB);
+      fillStyle = g;
+    }
+    ctx.fillStyle = fillStyle;
 
     var logosize = 0;
     if (state.logoImg) logosize = Math.floor(drawSize * 0.22);
 
+    // 定位图案区域判定（三个角 7x7）
+    var inEye = {};
+    function markEye(r0, c0) {
+      for (var i = 0; i < 7; i++) for (var j = 0; j < 7; j++) {
+        inEye[(r0 + i) + ',' + (c0 + j)] = true;
+      }
+    }
+    markEye(0, 0);
+    markEye(0, count - 7);
+    markEye(count - 7, 0);
+
     for (var r = 0; r < count; r++) {
       for (var c = 0; c < count; c++) {
         if (!qr.modules[r][c]) continue;
+        if (inEye[r + ',' + c]) continue;   // 定位图案单独绘制
         var x = offset + c * cell;
         var y = offset + r * cell;
-        // 定位角保护：不做形状变化
-        drawModule(x, y, cell, r, c, count);
+        // 孤立模块判定：四邻皆空才做形状变化，保证连通区域不被切碎
+        var iso = !(qr.modules[r - 1] && qr.modules[r - 1][c])
+               && !(qr.modules[r + 1] && qr.modules[r + 1][c])
+               && !qr.modules[r][c - 1]
+               && !qr.modules[r][c + 1];
+        drawModule(x, y, cell, r, c, count, iso, qr);
       }
     }
+
+    // 定位图案（三个角）
+    ctx.fillStyle = (state.eyeOn ? state.eyeColor : fillStyle);
+    drawEye(offset, offset, cell);
+    drawEye(offset + (count - 7) * cell, offset, cell);
+    drawEye(offset, offset + (count - 7) * cell, cell);
 
     // Logo
     if (state.logoImg) {
@@ -159,21 +247,86 @@
 
     $('versionInfo').textContent = '版本 ' + qr.size + '×' + qr.size;
     $('sizeInfo').textContent = '纠错 ' + state.ecLevel + ' · ' + drawSize + 'px';
+    updateContrastWarn();
+    // 目标尺寸与取整后实际像素不一致时，在按钮上标个小提示
+    if ($('sizes')) {
+      document.querySelectorAll('#sizes .sz').forEach(function (b) {
+        var want = parseInt(b.dataset.v, 10);
+        var real = cell * total;
+        b.classList.toggle('adjusted', real !== want);
+        b.title = real !== want ? ('导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）') : '';
+      });
+    }
   }
 
-  function drawModule(x, y, cell, r, c, count) {
-    if (state.dotStyle === 'square') {
+  // 绘制单个定位图案（7x7 模块，左上角 x,y）
+  function drawEye(x, y, cell) {
+    var s = cell * 7;
+    var st = state.eyeStyle;
+
+    if (st === 'square') {
+      // 外框 7x7 环，宽 1 模块
+      ctx.fillRect(x, y, s, cell);                    // 上
+      ctx.fillRect(x, y + s - cell, s, cell);         // 下
+      ctx.fillRect(x, y, cell, s);                    // 左
+      ctx.fillRect(x + s - cell, y, cell, s);         // 右
+      ctx.fillRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3); // 中心 3x3
+      return;
+    }
+
+    var rOuter = st === 'dot' ? s / 2 : cell * 1.6;
+    var rInner = st === 'dot' ? (cell * 3) / 2 : cell * 0.95;
+
+    // 外环（用 evenodd 挖空）
+    ctx.beginPath();
+    ctx.moveTo(x + rOuter, y);
+    ctx.arcTo(x + s, y, x + s, y + s, rOuter);
+    ctx.arcTo(x + s, y + s, x, y + s, rOuter);
+    ctx.arcTo(x, y + s, x, y, rOuter);
+    ctx.arcTo(x, y, x + s, y, rOuter);
+    ctx.closePath();
+    // 内挖空
+    var ix = x + cell, iy = y + cell, is = s - cell * 2;
+    ctx.moveTo(ix + rInner, iy);
+    ctx.arcTo(ix + is, iy, ix + is, iy + is, rInner);
+    ctx.arcTo(ix + is, iy + is, ix, iy + is, rInner);
+    ctx.arcTo(ix, iy + is, ix, iy, rInner);
+    ctx.arcTo(ix, iy, ix + is, iy, rInner);
+    ctx.closePath();
+    ctx.fill('evenodd');
+
+    // 中心 3x3
+    var cx = x + cell * 2, cy = y + cell * 2, cs = cell * 3;
+    ctx.beginPath();
+    if (st === 'dot') {
+      ctx.arc(cx + cs / 2, cy + cs / 2, cs / 2, 0, Math.PI * 2);
+    } else {
+      var rr = Math.min(cell * 0.95, cs / 2);
+      ctx.moveTo(cx + rr, cy);
+      ctx.arcTo(cx + cs, cy, cx + cs, cy + cs, rr);
+      ctx.arcTo(cx + cs, cy + cs, cx, cy + cs, rr);
+      ctx.arcTo(cx, cy + cs, cx, cy, rr);
+      ctx.arcTo(cx, cy, cx + cs, cy, rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 绘制单个码点。isolated = 四邻皆空，可安全画成圆/圆角；否则画方形保证连通性
+  function drawModule(x, y, cell, r, c, count, isolated, qr) {
+    if (state.dotStyle === 'square' || !isolated) {
       ctx.fillRect(x, y, cell, cell);
       return;
     }
-    var gap = Math.max(0.5, cell * 0.08);
     if (state.dotStyle === 'dot') {
-      var radius = (cell - gap) / 2;
+      // 孤立模块：画圆点（直径填满格子，外形是圆，但与邻居无接触风险）
+      var radius = cell / 2;
       ctx.beginPath();
-      ctx.arc(x + cell / 2, y + cell / 2, Math.max(0.6, radius), 0, Math.PI * 2);
+      ctx.arc(x + cell / 2, y + cell / 2, radius, 0, Math.PI * 2);
       ctx.fill();
-    } else { // rounded
-      roundRect(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap, Math.max(1, cell * 0.28));
+    } else { // rounded 圆角
+      var gap = Math.max(0.3, cell * 0.05);
+      roundRect(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap, Math.max(1, cell * 0.42));
       ctx.fill();
     }
   }
@@ -264,6 +417,84 @@
   }
   bindSeg('dotStyle', 'dotStyle');
   bindSeg('ecLevel', 'ecLevel');
+  bindSeg('gradDir', 'gradDir');
+  bindSeg('eyeStyle', 'eyeStyle');
+
+  // ---------- 事件：渐变 ----------
+  $('gradOn').addEventListener('change', function (e) {
+    state.gradOn = e.target.checked;
+    $('gradRow').classList.toggle('on', state.gradOn);
+    $('fgLabel').textContent = state.gradOn ? '前景色（被渐变覆盖）' : '前景色';
+    if ($('colorGrid')) $('colorGrid').classList.toggle('dim', state.gradOn);
+    render();
+  });
+
+  document.querySelectorAll('#gradPresets .gp').forEach(function (g) {
+    g.addEventListener('click', function () {
+      document.querySelectorAll('#gradPresets .gp').forEach(function (x) { x.classList.remove('sel'); });
+      g.classList.add('sel');
+      state.gradA = g.dataset.a;
+      state.gradB = g.dataset.b;
+      $('gradA').value = state.gradA;
+      $('gradB').value = state.gradB;
+      // 未开启渐变时，点预设自动开启
+      if (!state.gradOn) {
+        state.gradOn = true;
+        $('gradOn').checked = true;
+        $('gradRow').classList.add('on');
+        $('fgLabel').textContent = '前景色（被渐变覆盖）';
+        if ($('colorGrid')) $('colorGrid').classList.add('dim');
+      }
+      render();
+    });
+  });
+
+  $('gradA').addEventListener('input', function (e) {
+    state.gradA = e.target.value;
+    document.querySelectorAll('#gradPresets .gp').forEach(function (x) { x.classList.remove('sel'); });
+    render();
+  });
+  $('gradB').addEventListener('input', function (e) {
+    state.gradB = e.target.value;
+    document.querySelectorAll('#gradPresets .gp').forEach(function (x) { x.classList.remove('sel'); });
+    render();
+  });
+
+  // ---------- 事件：定位图案独立配色 ----------
+  $('eyeOn').addEventListener('change', function (e) {
+    state.eyeOn = e.target.checked;
+    $('eyeRow').classList.toggle('on', state.eyeOn);
+    render();
+  });
+  document.querySelectorAll('#eyeSwatches .sw').forEach(function (sw) {
+    sw.addEventListener('click', function () {
+      document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.remove('sel'); });
+      sw.classList.add('sel');
+      state.eyeColor = sw.dataset.c;
+      $('eyeColor').value = sw.dataset.c;
+      if (!state.eyeOn) {
+        state.eyeOn = true;
+        $('eyeOn').checked = true;
+        $('eyeRow').classList.add('on');
+      }
+      render();
+    });
+  });
+  $('eyeColor').addEventListener('input', function (e) {
+    state.eyeColor = e.target.value;
+    document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.remove('sel'); });
+    render();
+  });
+
+  // ---------- 事件：导出尺寸 ----------
+  document.querySelectorAll('#sizes .sz').forEach(function (sz) {
+    sz.addEventListener('click', function () {
+      document.querySelectorAll('#sizes .sz').forEach(function (x) { x.classList.remove('active'); });
+      sz.classList.add('active');
+      state.exportSize = parseInt(sz.dataset.v, 10);
+      render();
+    });
+  });
 
   // ---------- 事件：滑杆 ----------
   $('margin').addEventListener('input', function (e) {
@@ -300,10 +531,10 @@
   $('downloadPng').addEventListener('click', function () {
     if (!getContent()) return toast('请先输入内容');
     var link = document.createElement('a');
-    link.download = 'qr-studio-' + Date.now() + '.png';
+    link.download = 'codeform-' + canvas.width + '-' + Date.now() + '.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
-    toast('已下载 PNG');
+    toast('已下载 PNG（' + canvas.width + '×' + canvas.height + '）');
   });
 
   $('downloadSvg').addEventListener('click', function () {
@@ -313,16 +544,64 @@
     try { qr = window.QRCore.generate(content, state.ecLevel); }
     catch (e) { return toast('内容过长'); }
     var count = qr.size, margin = state.margin, total = count + margin * 2;
-    var svg = ['<?xml version="1.0" encoding="UTF-8"?>',
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" shape-rendering="crispEdges">',
-      '<rect width="' + total + '" height="' + total + '" fill="' + state.bg + '"/>'];
-    for (var r = 0; r < count; r++) for (var c = 0; c < count; c++) {
-      if (qr.modules[r][c]) svg.push('<rect x="' + (c + margin) + '" y="' + (r + margin) + '" width="1" height="1" fill="' + state.fg + '"/>');
+
+    // 填充定义：纯色 或 渐变
+    var defs = '', fillRef = state.fg;
+    if (state.gradOn) {
+      fillRef = 'url(#qg)';
+      var x1 = '0%', y1 = '0%', x2 = '100%', y2 = '100%';
+      if (state.gradDir === 'h') { x2 = '100%'; y2 = '0%'; }
+      else if (state.gradDir === 'v') { x2 = '0%'; y2 = '100%'; }
+      defs = '<defs><linearGradient id="qg" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '">'
+        + '<stop offset="0%" stop-color="' + state.gradA + '"/>'
+        + '<stop offset="100%" stop-color="' + state.gradB + '"/></linearGradient></defs>';
     }
+    var eyeFill = state.eyeOn ? state.eyeColor : fillRef;
+
+    var svg = ['<?xml version="1.0" encoding="UTF-8"?>',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" width="' + state.exportSize + '" height="' + state.exportSize + '" shape-rendering="crispEdges">',
+      defs,
+      '<rect width="' + total + '" height="' + total + '" fill="' + state.bg + '"/>'];
+
+    // 定位图案区域
+    var eyeMap = {};
+    function m(r0, c0) { for (var i = 0; i < 7; i++) for (var j = 0; j < 7; j++) eyeMap[(r0 + i) + ',' + (c0 + j)] = 1; }
+    m(0, 0); m(0, count - 7); m(count - 7, 0);
+
+    for (var r = 0; r < count; r++) for (var c = 0; c < count; c++) {
+      if (!qr.modules[r][c] || eyeMap[r + ',' + c]) continue;
+      var bx = c + margin, by = r + margin;
+      // 与画布逻辑保持一致：孤立模块才做形状变化
+      var iso = !(qr.modules[r - 1] && qr.modules[r - 1][c])
+             && !(qr.modules[r + 1] && qr.modules[r + 1][c])
+             && !qr.modules[r][c - 1]
+             && !qr.modules[r][c + 1];
+      if (state.dotStyle === 'square' || !iso) {
+        svg.push('<rect x="' + bx + '" y="' + by + '" width="1" height="1" fill="' + fillRef + '"/>');
+      } else if (state.dotStyle === 'dot') {
+        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.5" fill="' + fillRef + '"/>');
+      } else {
+        svg.push('<rect x="' + (bx + 0.02) + '" y="' + (by + 0.02) + '" width="0.96" height="0.96" rx="0.42" fill="' + fillRef + '"/>');
+      }
+    }
+
+    // 定位图案：外环(7x7 挖空 5x5) + 中心 3x3
+    function eyePath(ox, oy) {
+      var s = 'M' + (ox + 7) + ' ' + oy + 'H' + ox + 'V' + (oy + 7) + 'H' + (ox + 7) + 'Z'
+        + 'M' + (ox + 1) + ' ' + (oy + 1) + 'V' + (oy + 6) + 'H' + (ox + 6) + 'V' + (oy + 1) + 'Z';
+      return s;
+    }
+    var eyes = [[0, 0], [count - 7, 0], [0, count - 7]];
+    var d = eyes.map(function (e) { return eyePath(e[0] + margin, e[1] + margin); }).join(' ');
+    svg.push('<path d="' + d + '" fill="' + eyeFill + '" fill-rule="evenodd"/>');
+    eyes.forEach(function (e) {
+      svg.push('<rect x="' + (e[0] + margin + 2) + '" y="' + (e[1] + margin + 2) + '" width="3" height="3" fill="' + eyeFill + '"/>');
+    });
+
     svg.push('</svg>');
     var blob = new Blob([svg.join('')], { type: 'image/svg+xml' });
     var link = document.createElement('a');
-    link.download = 'qr-studio-' + Date.now() + '.svg';
+    link.download = 'codeform-' + Date.now() + '.svg';
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
@@ -342,13 +621,27 @@
   $('resetAll').addEventListener('click', function () {
     state.fg = '#0a0c12'; state.bg = '#ffffff';
     state.dotStyle = 'square'; state.ecLevel = 'M'; state.margin = 4; state.logoImg = null;
+    state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
+    state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#5b8cff';
+    state.exportSize = 600;
     $('fgColor').value = '#0a0c12'; $('bgColor').value = '#ffffff';
     $('margin').value = 4; $('marginVal').textContent = '4';
     $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
+    $('gradOn').checked = false; $('gradRow').classList.remove('on');
+    $('fgLabel').textContent = '前景色';
+    if ($('colorGrid')) $('colorGrid').classList.remove('dim');
+    $('gradA').value = '#0c2a6b'; $('gradB').value = '#2563eb';
+    $('eyeOn').checked = false; $('eyeRow').classList.remove('on');
+    $('eyeColor').value = '#5b8cff';
+    document.querySelectorAll('#gradPresets .gp').forEach(function (g) { g.classList.remove('sel'); });
     document.querySelectorAll('#dotStyle button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'square'); });
     document.querySelectorAll('#ecLevel button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'M'); });
+    document.querySelectorAll('#gradDir button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'diag'); });
+    document.querySelectorAll('#eyeStyle button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'square'); });
+    document.querySelectorAll('#sizes .sz').forEach(function (b) { b.classList.toggle('active', b.dataset.v === '600'); });
     document.querySelectorAll('#fgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#0a0c12'); });
     document.querySelectorAll('#bgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#ffffff'); });
+    document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#5b8cff'); });
     // 清空所有内容输入
     ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
