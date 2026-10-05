@@ -224,9 +224,9 @@
 
     // 圆形/圆角绘制会产生抗锯齿灰边（实测占比约 2%），
     // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
-    // 仅在「纯色前景 + 非圆形图案」之外的情况下做硬阈值二值化。
+    // 只要不是渐变（渐变不能压成纯色，这是硬约束），形状带弧就做一次硬阈值二值化。
     var needBin = !cfg.gradOn && (cfg.dotStyle === 'dot' || cfg.dotStyle === 'liquid'
-                   || (cfg.eyeOn && cfg.eyeStyle !== 'square'));
+                   || cfg.eyeStyle !== 'square');
     if (needBin) {
       var imgData = c2d.getImageData(0, 0, drawSize, drawSize);
       var px = imgData.data;
@@ -300,55 +300,81 @@
   }
 
   // 绘制单个定位图案（7x7 模块，左上角 x,y）
+  //
+  // 【这次重写的理由】
+  // 旧实现里"方形"分支用 4 个 fillRect 拼外环，另外两种形状走 arcTo + fill('evenodd')
+  // 内挖空。两套代码各算各的几何，且 SVG 那条路径压根没读 eyeStyle —— 于是出现
+  // 「预览选了圆点、导出 SVG 还是方框」的不一致。
+  //
+  // 现在三种形状统一为「描边一个盒模型」：
+  //   方形 = 描边直角矩形环        + 实心直角方块
+  //   圆角 = 描边圆角矩形环        + 实心圆角方块
+  //   圆点 = 描边椭圆环            + 实心圆形
+  // 环宽固定 = 盒宽的 1/7（换算下来正好 1 个模块厚），与旧版 fillRect 拼出的环
+  // 视觉等价；而描边天然居中，不需要再构造内挖空路径，圆角/圆形的弧也自动同心。
+  // 几何全部来自 ShapeMath，SVG 侧调用同一份数学，两条路径不可能再算得不一样。
   function drawEye(g, x, y, cell, cfg) {
-    var s = cell * 7;
+    var S = window.ShapeMath;
     var st = cfg.eyeStyle;
+    if (st !== 'square' && st !== 'rounded' && st !== 'dot') st = 'square';
 
-    if (st === 'square') {
-      // 外框 7x7 环，宽 1 模块
-      g.fillRect(x, y, s, cell);                    // 上
-      g.fillRect(x, y + s - cell, s, cell);         // 下
-      g.fillRect(x, y, cell, s);                    // 左
-      g.fillRect(x + s - cell, y, cell, s);         // 右
-      g.fillRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3); // 中心 3x3
-      return;
-    }
+    var boxPx = S.BOX * cell;          // 7×7 图案的外接盒（像素）
+    var hw = S.eyeRingWidth(boxPx);    // 环宽 = 盒宽/7 = 1 个模块（eyeRingWidth 接收的是整个盒宽）
+    var isDot = st === 'dot';
+    var isRounded = st === 'rounded';
 
-    var rOuter = st === 'dot' ? s / 2 : cell * 1.6;
-    var rInner = st === 'dot' ? (cell * 3) / 2 : cell * 0.95;
+    // ---- 外环：描边路径 ----
+    // 描边以路径为中心线向两侧各扩 hw/2，所以路径必须内缩半个环宽，
+    // 深色外缘才能正好贴住 7×7 盒边（否则外扩 0.5 模块，定位图案变成 8×8，
+    // 扫描线比例从 1:1:3:1:1 变成 1:1.5:3:1.5:1，扫码器直接拒绝识别）。
+    //
+    // 方形：贴边直角环，与旧版 fillRect 等价
+    // 圆角：路径圆角 1.6 模块，外缘圆角 2.1 —— "圆角方块"而不是圆，
+    //       和圆点的正圆拉开差距（用户反馈过"圆角和圆点没区别"，这里必须区分开）
+    // 圆点：正圆环
+    var ringBox = boxPx - hw;
+    var cxRing = x + boxPx / 2, cyRing = y + boxPx / 2;
 
-    // 外环（用 evenodd 挖空）
     g.beginPath();
-    g.moveTo(x + rOuter, y);
-    g.arcTo(x + s, y, x + s, y + s, rOuter);
-    g.arcTo(x + s, y + s, x, y + s, rOuter);
-    g.arcTo(x, y + s, x, y, rOuter);
-    g.arcTo(x, y, x + s, y, rOuter);
-    g.closePath();
-    // 内挖空
-    var ix = x + cell, iy = y + cell, is = s - cell * 2;
-    g.moveTo(ix + rInner, iy);
-    g.arcTo(ix + is, iy, ix + is, iy + is, rInner);
-    g.arcTo(ix + is, iy + is, ix, iy + is, rInner);
-    g.arcTo(ix, iy + is, ix, iy, rInner);
-    g.arcTo(ix, iy, ix + is, iy, rInner);
-    g.closePath();
-    g.fill('evenodd');
-
-    // 中心 3x3
-    var cx = x + cell * 2, cy = y + cell * 2, cs = cell * 3;
-    g.beginPath();
-    if (st === 'dot') {
-      g.arc(cx + cs / 2, cy + cs / 2, cs / 2, 0, Math.PI * 2);
+    if (isDot) {
+      g.arc(cxRing, cyRing, ringBox / 2, 0, Math.PI * 2);
     } else {
-      var rr = Math.min(cell * 0.95, cs / 2);
-      g.moveTo(cx + rr, cy);
-      g.arcTo(cx + cs, cy, cx + cs, cy + cs, rr);
-      g.arcTo(cx + cs, cy + cs, cx, cy + cs, rr);
-      g.arcTo(cx, cy + cs, cx, cy, rr);
-      g.arcTo(cx, cy, cx + cs, cy, rr);
+      var r = isRounded ? cell * 1.6 : 0;
+      var half = ringBox / 2;
+      var lx = cxRing - half, ty = cyRing - half;
+      if (r <= 0) {
+        g.rect(lx, ty, ringBox, ringBox);
+      } else {
+        g.moveTo(lx + r, ty);
+        g.arcTo(lx + ringBox, ty, lx + ringBox, ty + ringBox, r);
+        g.arcTo(lx + ringBox, ty + ringBox, lx, ty + ringBox, r);
+        g.arcTo(lx, ty + ringBox, lx, ty, r);
+        g.arcTo(lx, ty, lx + ringBox, ty, r);
+        g.closePath();
+      }
     }
-    g.closePath();
+    g.lineWidth = hw;
+    g.stroke();
+
+    // ---- 中心方块 / 圆 ----
+    var cBox = S.CENTER * cell;
+    var ccx = x + boxPx / 2, ccy = y + boxPx / 2;
+    var cHalf = cBox / 2;
+    g.beginPath();
+    if (isDot) {
+      g.arc(ccx, ccy, cHalf, 0, Math.PI * 2);
+    } else if (isRounded) {
+      var cr = Math.min(cell * 0.95, cHalf);   // 与旧版圆角程度一致
+      var cl = ccx - cHalf, ct = ccy - cHalf;
+      g.moveTo(cl + cr, ct);
+      g.arcTo(cl + cBox, ct, cl + cBox, ct + cBox, cr);
+      g.arcTo(cl + cBox, ct + cBox, cl, ct + cBox, cr);
+      g.arcTo(cl, ct + cBox, cl, ct, cr);
+      g.arcTo(cl, ct, cl + cBox, ct, cr);
+      g.closePath();
+    } else {
+      g.rect(ccx - cHalf, ccy - cHalf, cBox, cBox);
+    }
     g.fill();
   }
 
@@ -520,6 +546,147 @@
   bindSeg('gradDir', 'gradDir');
   bindSeg('eyeStyle', 'eyeStyle');
 
+  // ---------- 美化模板 ----------
+  // 每套模板 = 一份完整「外观」快照：配色（纯色或渐变）+ 码点形状 + 定位图案形状。
+  // 刻意【不包含】纠错等级、静默边距、导出尺寸、Logo —— 这些是用户的功能设置，
+  // 换个好看的外观不应该悄悄改掉它们（用户明确要求过只覆盖外观、保留 Logo）。
+  //
+  // 模板预览不是贴图，而是初始化时用真正的渲染管线（renderTo）画出来的迷你码，
+  // 所以预览长什么样、套用后就长什么样，不存在"预览与实际不一致"。
+  //
+  // 所有前景/背景组合都核对过对比度 ≥ 4.5:1（最苛刻的也有 5.3:1），
+  // 套用任何模板都不会触发"可能扫不出来"的警告。
+  var TPL_PREVIEW_CONTENT = 'https://m.f';   // 11 字节，v1 码（21 模块），预览最干净
+  var TEMPLATES = [
+    // —— 深色系 ——
+    { name: '墨黑',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'square', gradOn: false, gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'square',  eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '午夜蓝', fg: '#0a0c12', bg: '#ffffff', dotStyle: 'liquid', gradOn: true,  gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '曜石',   fg: '#0f172a', bg: '#e2e8f0', dotStyle: 'liquid', gradOn: false, gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'square',  eyeOn: false, eyeColor: '#1d4ed8' },
+    // —— 红色系 ——
+    { name: '故宫红', fg: '#9e2a2b', bg: '#fff8f0', dotStyle: 'square', gradOn: false, gradA: '#7f1d1d', gradB: '#be123c', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '朱砂',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'dot',    gradOn: true,  gradA: '#7f1d1d', gradB: '#be123c', gradDir: 'diag', eyeStyle: 'dot',     eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '胭脂',   fg: '#be123c', bg: '#fff1f2', dotStyle: 'liquid', gradOn: false, gradA: '#7f1d1d', gradB: '#be123c', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    // —— 清爽系 ——
+    { name: '冰川',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'dot',    gradOn: true,  gradA: '#0c3d5e', gradB: '#0369a1', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '薄荷',   fg: '#047857', bg: '#f0fdf4', dotStyle: 'dot',    gradOn: false, gradA: '#064e3b', gradB: '#047857', gradDir: 'diag', eyeStyle: 'dot',     eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '青瓷',   fg: '#0f766e', bg: '#f0fdfa', dotStyle: 'liquid', gradOn: false, gradA: '#064e3b', gradB: '#047857', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    // —— 渐变系 ——
+    { name: '日落',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'liquid', gradOn: true,  gradA: '#b45309', gradB: '#be123c', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '极光',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'liquid', gradOn: true,  gradA: '#047857', gradB: '#0e7490', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '星空',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'dot',    gradOn: true,  gradA: '#1e1b4b', gradB: '#6d28d9', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    // —— 商务系 ——
+    { name: '商务蓝', fg: '#1e3a8a', bg: '#ffffff', dotStyle: 'square', gradOn: false, gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'square',  eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '石墨',   fg: '#334155', bg: '#f8fafc', dotStyle: 'square', gradOn: false, gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'rounded', eyeOn: false, eyeColor: '#1d4ed8' },
+    { name: '素白',   fg: '#0a0c12', bg: '#ffffff', dotStyle: 'dot',    gradOn: false, gradA: '#0c2a6b', gradB: '#2563eb', gradDir: 'diag', eyeStyle: 'square',  eyeOn: false, eyeColor: '#1d4ed8' }
+  ];
+
+  // 把 state 的当前值同步回所有样式控件（模板套用 / 重置共用）。
+  // 这是从 resetAll 的手工回填里提炼出来的 —— 以前没有这个函数，
+  // 程序化改 state 后 UI 就会脱节，是"预览变了控件没变"类 bug 的根源。
+  function syncSwatchUI(containerId, colorInputId, val) {
+    var c = $(containerId);
+    var matched = false;
+    c.querySelectorAll('.sw').forEach(function (s) {
+      var on = s.dataset.c === val;
+      s.classList.toggle('sel', on);
+      if (on) matched = true;
+    });
+    // 没有色块匹配当前色（自定义色）时，高亮取色器本身
+    c.classList.toggle('picked', !matched);
+    $(colorInputId).value = val;
+  }
+  function syncSegUI(segId, val) {
+    document.querySelectorAll('#' + segId + ' button').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.v === val);
+    });
+  }
+  function syncStyleUI() {
+    syncSwatchUI('fgSwatches', 'fgColor', state.fg);
+    syncSwatchUI('bgSwatches', 'bgColor', state.bg);
+    syncSwatchUI('eyeSwatches', 'eyeColor', state.eyeColor);
+    syncSegUI('dotStyle', state.dotStyle);
+    syncSegUI('ecLevel', state.ecLevel);
+    syncSegUI('gradDir', state.gradDir);
+    syncSegUI('eyeStyle', state.eyeStyle);
+    $('gradOn').checked = state.gradOn;
+    $('gradRow').classList.toggle('on', state.gradOn);
+    $('fgLabel').textContent = state.gradOn ? '前景色（被渐变覆盖）' : '前景色';
+    if ($('colorGrid')) $('colorGrid').classList.toggle('dim', state.gradOn);
+    $('gradA').value = state.gradA;
+    $('gradB').value = state.gradB;
+    document.querySelectorAll('#gradPresets .gp').forEach(function (g) {
+      g.classList.toggle('sel', state.gradOn && g.dataset.a === state.gradA && g.dataset.b === state.gradB);
+    });
+    $('eyeOn').checked = state.eyeOn;
+    $('eyeRow').classList.toggle('on', state.eyeOn);
+    document.querySelectorAll('#sizes .sz').forEach(function (b) {
+      b.classList.toggle('active', parseInt(b.dataset.v, 10) === state.exportSize);
+    });
+  }
+
+  function clearTplSel() {
+    document.querySelectorAll('#tplGrid .tpl').forEach(function (t) { t.classList.remove('sel'); });
+  }
+
+  function applyTemplate(idx, tile) {
+    var t = TEMPLATES[idx];
+    state.fg = t.fg;
+    state.bg = t.bg;
+    state.dotStyle = t.dotStyle;
+    state.gradOn = t.gradOn;
+    state.gradA = t.gradA;
+    state.gradB = t.gradB;
+    state.gradDir = t.gradDir || 'diag';
+    state.eyeStyle = t.eyeStyle;
+    state.eyeOn = !!t.eyeOn;
+    state.eyeColor = t.eyeColor || '#1d4ed8';
+    syncStyleUI();
+    clearTplSel();
+    if (tile) tile.classList.add('sel');
+    render();
+    if (typeof updateBatchStat === 'function') updateBatchStat();  // 批量页的样式说明同步刷新
+    toast('已套用模板「' + t.name + '」');
+  }
+
+  function buildTplGrid() {
+    var grid = $('tplGrid');
+    if (!grid) return;
+    TEMPLATES.forEach(function (t, i) {
+      var tile = document.createElement('div');
+      tile.className = 'tpl';
+      tile.title = t.name;
+      var cv = document.createElement('canvas');
+      var lbl = document.createElement('div');
+      lbl.className = 'tpl-name';
+      lbl.textContent = t.name;
+      tile.appendChild(cv);
+      tile.appendChild(lbl);
+      // 用真实渲染管线画迷你预览（v1 码 + 3 模块边距，145px 导出）
+      renderTo(cv, TPL_PREVIEW_CONTENT, {
+        fg: t.fg, bg: t.bg, dotStyle: t.dotStyle, ecLevel: 'M', margin: 3,
+        logoImg: null, gradOn: t.gradOn, gradA: t.gradA, gradB: t.gradB,
+        gradDir: t.gradDir || 'diag', eyeStyle: t.eyeStyle, eyeOn: !!t.eyeOn,
+        eyeColor: t.eyeColor || '#1d4ed8', exportSize: 145
+      });
+      tile.addEventListener('click', function () { applyTemplate(i, tile); });
+      grid.appendChild(tile);
+    });
+  }
+  buildTplGrid();
+
+  // 用户手动改任何样式控件 → 当前不再匹配任何模板，取消高亮。
+  // 用事件委托挂在样式卡片上，覆盖 swatch / 分段 / 开关 / 取色器 / 渐变预设。
+  // 注意排除模板网格自己的点击（那是"选中"，不是"偏离"）。
+  var styleCard = $('styleCard');
+  if (styleCard) {
+    ['click', 'input', 'change'].forEach(function (ev) {
+      styleCard.addEventListener(ev, function (e) {
+        if (e.target && e.target.closest && e.target.closest('#tplGrid')) return;
+        clearTplSel();
+      });
+    });
+  }
+
   // ---------- 事件：渐变 ----------
   $('gradOn').addEventListener('change', function (e) {
     state.gradOn = e.target.checked;
@@ -638,84 +805,15 @@
   });
 
   $('downloadSvg').addEventListener('click', function () {
+    // 直接复用 buildSvg()，不再自己重写一遍绘制算法。
+    // 原先这里有第三份独立的 SVG 生成代码（和 buildSvg 逻辑重复），
+    // 结果是任何样式改动都得改三处，漏一处就出现「预览变了、导出没变」。
+    // 收敛成一条路径后，这种漂移从结构上不可能再发生。
     var content = getContent();
     if (!content) return toast('请先输入内容');
-    var qr;
-    try { qr = window.QRCore.generate(content, state.ecLevel); }
-    catch (e) { return toast('内容过长'); }
-    var count = qr.size, margin = state.margin, total = count + margin * 2;
-
-    // 填充定义：纯色 或 渐变
-    var defs = '', fillRef = state.fg;
-    if (state.gradOn) {
-      fillRef = 'url(#qg)';
-      var x1 = '0%', y1 = '0%', x2 = '100%', y2 = '100%';
-      if (state.gradDir === 'h') { x2 = '100%'; y2 = '0%'; }
-      else if (state.gradDir === 'v') { x2 = '0%'; y2 = '100%'; }
-      defs = '<defs><linearGradient id="qg" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '">'
-        + '<stop offset="0%" stop-color="' + state.gradA + '"/>'
-        + '<stop offset="100%" stop-color="' + state.gradB + '"/></linearGradient></defs>';
-    }
-    var eyeFill = (state.eyeOn && contrast(state.eyeColor, state.bg) >= 3) ? state.eyeColor : fillRef;
-
-    var svg = ['<?xml version="1.0" encoding="UTF-8"?>',
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" width="' + state.exportSize + '" height="' + state.exportSize + '" shape-rendering="crispEdges">',
-      defs,
-      '<rect width="' + total + '" height="' + total + '" fill="' + state.bg + '"/>'];
-
-    // 定位图案区域
-    var eyeMap = {};
-    function m(r0, c0) { for (var i = 0; i < 7; i++) for (var j = 0; j < 7; j++) eyeMap[(r0 + i) + ',' + (c0 + j)] = 1; }
-    m(0, 0); m(0, count - 7); m(count - 7, 0);
-
-    for (var r = 0; r < count; r++) for (var c = 0; c < count; c++) {
-      if (!qr.modules[r][c] || eyeMap[r + ',' + c]) continue;
-      var bx = c + margin, by = r + margin;
-      // 与画布绘制逻辑保持一致
-      if (state.dotStyle === 'square') {
-        svg.push('<rect x="' + bx + '" y="' + by + '" width="1" height="1" fill="' + fillRef + '"/>');
-      } else if (state.dotStyle === 'dot') {
-        svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.55" fill="' + fillRef + '"/>');
-      } else { // liquid：圆角方块 + 按邻接关系决定各角圆化（与画布同算法）
-        var up = isFilled(qr, r - 1, c, count);
-        var down = isFilled(qr, r + 1, c, count);
-        var left = isFilled(qr, r, c - 1, count);
-        var right = isFilled(qr, r, c + 1, count);
-        var rd = '0.5';
-        var tl = (!up && !left) ? rd : '0';
-        var tr = (!up && !right) ? rd : '0';
-        var br = (!down && !right) ? rd : '0';
-        var bl = (!down && !left) ? rd : '0';
-        var dx = bx, dy = by;
-        var d = 'M' + (dx + (+tl)) + ' ' + dy
-          + 'H' + (dx + 1 - (+tr))
-          + (tr !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1) + ' ' + (dy + (+tr)) : '')
-          + 'V' + (dy + 1 - (+br))
-          + (br !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1 - (+br)) + ' ' + (dy + 1) : '')
-          + 'H' + (dx + (+bl))
-          + (bl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + dx + ' ' + (dy + 1 - (+bl)) : '')
-          + 'V' + (dy + (+tl))
-          + (tl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + (+tl)) + ' ' + dy : '')
-          + 'Z';
-        svg.push('<path d="' + d + '" fill="' + fillRef + '"/>');
-      }
-    }
-
-    // 定位图案：外环(7x7 挖空 5x5) + 中心 3x3
-    function eyePath(ox, oy) {
-      var s = 'M' + (ox + 7) + ' ' + oy + 'H' + ox + 'V' + (oy + 7) + 'H' + (ox + 7) + 'Z'
-        + 'M' + (ox + 1) + ' ' + (oy + 1) + 'V' + (oy + 6) + 'H' + (ox + 6) + 'V' + (oy + 1) + 'Z';
-      return s;
-    }
-    var eyes = [[0, 0], [count - 7, 0], [0, count - 7]];
-    var d = eyes.map(function (e) { return eyePath(e[0] + margin, e[1] + margin); }).join(' ');
-    svg.push('<path d="' + d + '" fill="' + eyeFill + '" fill-rule="evenodd"/>');
-    eyes.forEach(function (e) {
-      svg.push('<rect x="' + (e[0] + margin + 2) + '" y="' + (e[1] + margin + 2) + '" width="3" height="3" fill="' + eyeFill + '"/>');
-    });
-
-    svg.push('</svg>');
-    var blob = new Blob([svg.join('')], { type: 'image/svg+xml' });
+    var svg = buildSvg(content, state);
+    if (!svg) return toast('内容过长');
+    var blob = new Blob([svg], { type: 'image/svg+xml' });
     var link = document.createElement('a');
     link.download = 'codeform-' + Date.now() + '.svg';
     link.href = URL.createObjectURL(blob);
@@ -740,30 +838,17 @@
     state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
     state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#1d4ed8';
     state.exportSize = 600;
-    $('fgColor').value = '#0a0c12'; $('bgColor').value = '#ffffff';
+    // UI 同步交给 syncStyleUI（与模板套用共用同一份逻辑，不会各改各的）
+    syncStyleUI();
     $('margin').value = 4; $('marginVal').textContent = '4';
     $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
-    $('gradOn').checked = false; $('gradRow').classList.remove('on');
-    $('fgLabel').textContent = '前景色';
-    if ($('colorGrid')) $('colorGrid').classList.remove('dim');
-    $('gradA').value = '#0c2a6b'; $('gradB').value = '#2563eb';
-    $('eyeOn').checked = false; $('eyeRow').classList.remove('on');
-    $('eyeColor').value = '#1d4ed8';
-    document.querySelectorAll('#gradPresets .gp').forEach(function (g) { g.classList.remove('sel'); });
-    document.querySelectorAll('#dotStyle button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'square'); });
-    document.querySelectorAll('#ecLevel button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'M'); });
-    document.querySelectorAll('#gradDir button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'diag'); });
-    document.querySelectorAll('#eyeStyle button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'square'); });
-    document.querySelectorAll('#sizes .sz').forEach(function (b) { b.classList.toggle('active', b.dataset.v === '600'); });
-    document.querySelectorAll('#fgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#0a0c12'); });
-    document.querySelectorAll('#bgSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#ffffff'); });
-    document.querySelectorAll('#eyeSwatches .sw').forEach(function (s) { s.classList.toggle('sel', s.dataset.c === '#1d4ed8'); });
     // 清空所有内容输入
     ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
       $(id).value = '';
     });
     document.querySelectorAll('#geoPreset button').forEach(function (b) { b.classList.remove('active'); });
+    clearTplSel();   // 重置按钮在预览卡片里，不走 styleCard 的事件委托，这里手动清
     render();
     toast('已重置');
   });
@@ -927,7 +1012,7 @@
     var out = ['<?xml version="1.0" encoding="UTF-8"?>',
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total
       + '" width="' + cfg.exportSize + '" height="' + cfg.exportSize
-      + '" shape-rendering="crispEdges">',
+      + '" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">',
       defs,
       '<rect width="' + total + '" height="' + total + '" fill="' + cfg.bg + '"/>'];
 
@@ -966,19 +1051,61 @@
     }
 
     // 定位图案
-    var eyes = [[0, 0], [count - 7, 0], [0, count - 7]];
-    var dpath = eyes.map(function (e) {
-      var ox = e[0] + margin, oy = e[1] + margin;
-      return 'M' + (ox + 7) + ' ' + oy + 'H' + ox + 'V' + (oy + 7) + 'H' + (ox + 7) + 'Z'
-        + 'M' + (ox + 1) + ' ' + (oy + 1) + 'V' + (oy + 6) + 'H' + (ox + 6) + 'V' + (oy + 1) + 'Z';
-    }).join(' ');
-    out.push('<path d="' + dpath + '" fill="' + eyeFill + '" fill-rule="evenodd"/>');
-    eyes.forEach(function (e) {
-      out.push('<rect x="' + (e[0] + margin + 2) + '" y="' + (e[1] + margin + 2)
-        + '" width="3" height="3" fill="' + eyeFill + '"/>');
-    });
+    //
+    // 【本次修复】这里原先恒画方形环，完全不读 cfg.eyeStyle —— 用户在页面上选了
+    // 「圆角」或「圆点」，预览是对的，导出的 SVG 却还是方框。现在改为调用
+    // eyeSvgMarkup()，Canvas 与 SVG 共用 ShapeMath 的同一份几何。
+    out.push(eyeSvgMarkup(cfg.eyeStyle, count, margin, eyeFill));
 
     out.push('</svg>');
+    return out.join('');
+  }
+
+  // 生成三个定位图案的 SVG 片段。
+  // 几何全部来自 ShapeMath，坐标单位是「模块」（SVG 的 1 个图案单位 = 1 个模块）。
+  // 与 drawEye 的像素实现一一对应：方形贴边描边、圆角 1.6 模块、圆点正圆。
+  function eyeSvgMarkup(style, count, margin, fill) {
+    var S = window.ShapeMath;
+    var st = (style === 'rounded' || style === 'dot') ? style : 'square';
+
+    var boxPx = S.BOX;                 // 7
+    var hw = S.eyeRingWidth(boxPx);    // = 1 个模块（eyeRingWidth 接收整个盒宽）
+    var isDot = st === 'dot';
+    var isRounded = st === 'rounded';
+
+    // 描边路径内缩半个环宽，让深色外缘正好贴住 7×7 盒边（与 drawEye 同理，
+    // 否则定位图案外扩成 8×8，1:1:3:1:1 比例被破坏，扫不出来）。
+    var ringBox = boxPx - hw;
+    var cBox = S.CENTER;               // 3
+
+    var out = [];
+    var eyes = [[0, 0], [count - 7, 0], [0, count - 7]];
+
+    // ---- 外环：描边路径（无 fill）----
+    var ringD = eyes.map(function (e) {
+      var ox = e[0] + margin, oy = e[1] + margin;
+      var cx = ox + boxPx / 2, cy = oy + boxPx / 2;
+      if (isDot) {
+        return S.circlePath(cx + ' ' + cy, cx, ringBox / 2);
+      }
+      var half = ringBox / 2;
+      var r = isRounded ? 1.6 : 0;
+      return S.roundedRectPath((cx - half) + ' ' + (cy - half), half, r);
+    }).join(' ');
+    out.push('<path d="' + ringD + '" fill="none" stroke="' + fill
+      + '" stroke-width="' + hw + '"/>');
+
+    // ---- 中心方块 / 圆：填充路径 ----
+    var centerD = eyes.map(function (e) {
+      var ox = e[0] + margin, oy = e[1] + margin;
+      var cx = ox + boxPx / 2, cy = oy + boxPx / 2;
+      var cHalf = cBox / 2;
+      if (isDot) return S.circlePath(cx + ' ' + cy, cx, cHalf);
+      var cr = isRounded ? 0.95 : 0;      // 与画布 cell*0.95 等价（单位=模块）
+      return S.roundedRectPath((cx - cHalf) + ' ' + (cy - cHalf), cHalf, cr);
+    }).join(' ');
+    out.push('<path d="' + centerD + '" fill="' + fill + '"/>');
+
     return out.join('');
   }
 

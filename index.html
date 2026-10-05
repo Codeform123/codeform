@@ -794,6 +794,23 @@
   .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; }
   @media (max-width: 560px) { .style-grid { grid-template-columns: 1fr; } }
 
+  /* ================= 美化模板 ================= */
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 10px; }
+  .tpl {
+    cursor: pointer; border-radius: 12px; padding: 7px 6px 6px;
+    background: var(--surface-2); text-align: center;
+    box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+    transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out), background .18s var(--ease-out);
+  }
+  .tpl:hover { transform: translateY(-2px); background: var(--surface-3); }
+  .tpl.sel { box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--accent), 0 0 18px -2px var(--glow); }
+  .tpl canvas { width: 100%; display: block; border-radius: 7px; }
+  .tpl-name {
+    font-size: 11px; color: var(--ink-2); margin-top: 6px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tpl.sel .tpl-name { color: var(--ink); }
+
   /* ================= 响应式 ================= */
   @media (max-width: 960px) {
     .preview-wrap { position: static; }
@@ -948,8 +965,14 @@
         <div class="hint">所有内容仅在浏览器内处理，不会上传到任何服务器。</div>
       </div>
 
-      <div class="card">
+      <div class="card" id="styleCard">
         <h2>样式 Style</h2>
+
+        <!-- 组：美化模板 -->
+        <div class="group">
+          <div class="group-label">美化模板 <span style="letter-spacing:.02em;text-transform:none;font-weight:500">一键套用整套风格</span></div>
+          <div class="tpl-grid" id="tplGrid"></div>
+        </div>
 
         <!-- 组：配色 -->
         <div class="group">
@@ -1301,6 +1324,7 @@ https://example.com/3,产品三
 <script src="qrcode.js"></script>
 <script src="jsqr.js"></script>
 <script src="zip.js"></script>
+<script src="shape_math.js"></script>
 <script src="app.js"></script>
 <script>
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */
