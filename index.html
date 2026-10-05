@@ -365,6 +365,10 @@
     box-shadow: 0 1px 0 rgba(255,255,255,.13) inset, 0 0 0 1px rgba(120,150,255,.30), 0 6px 16px -9px var(--glow);
   }
   .shape-cell.active svg path { fill: #fff; }
+  /* 码点形状的缩略图是逐格采样画的马赛克，用 rect 而非 path */
+  .shape-cell svg rect { fill: var(--ink-3); transition: fill .18s var(--ease-out); }
+  .shape-cell:hover svg rect { fill: var(--ink-2); }
+  .shape-cell.active svg rect { fill: #fff; }
   /* 形状留白说明：异形时画布会变大，这里如实告知，避免用户以为被坑了尺寸 */
   .shape-note {
     font-size: 11.5px; color: var(--ink-4); line-height: 1.6; margin-top: 11px;
@@ -1121,21 +1125,28 @@
           </div>
         </div>
 
-        <!-- 组：整体轮廓 -->
+        <!-- 组：二维码形状 -->
+        <!-- 两个概念必须分开，否则又会误会：
+             ① 外框：码点仍然是方阵，只是外面套了个形状（以前的实现）
+             ② 形状：码点自己铺满整个形状，形状外不画码点（真·形状码） -->
         <div class="group">
-          <div class="group-label">整体轮廓</div>
-          <div class="field">
-            <label>二维码外形</label>
+          <div class="group-label">二维码形状</div>
+          <div class="field" style="margin-bottom:16px">
+            <label>外框 <span style="color:var(--ink-4);font-weight:400">（码点仍是方阵，外面套形状）</span></label>
             <div class="shape-grid" id="frameShape"></div>
+          </div>
+          <div class="field">
+            <label>码点形状 <span style="color:var(--ink-4);font-weight:400">（码点自己铺成形状）</span></label>
+            <div class="shape-grid" id="bodyShape"></div>
             <div class="shape-note" id="shapeNote"></div>
           </div>
         </div>
 
         <!-- 组：码型 -->
         <div class="group">
-          <div class="group-label">码型</div>
+          <div class="group-label">码点</div>
           <div class="field" style="margin-bottom:18px">
-            <label>码点形状</label>
+            <label>单点样式</label>
             <div class="seg" id="dotStyle">
               <button class="active" data-v="square">直角</button>
               <button data-v="dot">圆角</button>
@@ -1399,6 +1410,7 @@ https://example.com/3,产品三
 <script src="zip.js"></script>
 <script src="shape_math.js"></script>
 <script src="frame_shapes.js"></script>
+<script src="body_shapes.js"></script>
 <script src="app.js"></script>
 <script>
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */
