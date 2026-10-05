@@ -615,6 +615,83 @@
   .scan-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .scan-actions .btn { padding: 8px 14px; font-size: 12.5px; }
 
+  /* ================= 批量生成 ================= */
+  .batch-wrap { display: none; }
+  .batch-wrap.on { display: block; }
+  .batch-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 14px; margin-bottom: 18px;
+  }
+  .batch-title { font-size: 16px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+  .batch-sub { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; line-height: 1.6; }
+  .batch-free {
+    flex: none; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    color: #34d399; background: rgba(52,211,153,.10);
+    border: 1px solid rgba(52,211,153,.28); border-radius: 999px; padding: 4px 11px;
+  }
+  .lbl-hint { font-weight: 400; color: var(--ink-4); font-size: 11.5px; }
+  .batch-input { min-height: 168px; line-height: 1.75; }
+  .batch-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .batch-opts .seg button { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+  .batch-stat {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 14px; padding: 10px 13px; border-radius: var(--radius-sm);
+    background: var(--surface-2); box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset;
+    font-size: 12.5px; color: var(--ink-3);
+  }
+  .batch-stat b { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .bs-sep { color: var(--ink-4); }
+  .batch-warn {
+    display: none; margin-top: 12px; padding: 11px 13px; border-radius: var(--radius-sm);
+    font-size: 12.5px; line-height: 1.7; color: #fbbf24;
+    background: rgba(251,191,36,.07); border: 1px solid rgba(251,191,36,.22);
+  }
+  .batch-warn.on { display: block; }
+  .batch-warn.risk { color: #f87171; background: rgba(248,113,113,.07); border-color: rgba(248,113,113,.24); }
+  .batch-progress { display: none; margin-top: 14px; }
+  .batch-progress.on { display: block; }
+  .bp-bar {
+    height: 6px; border-radius: 999px; overflow: hidden; background: var(--surface-3);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset;
+  }
+  .bp-fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .18s var(--ease-out);
+  }
+  .bp-text { font-size: 12px; color: var(--ink-3); margin-top: 7px; text-align: right; }
+  .batch-result { display: none; margin-top: 18px; }
+  .batch-result.on { display: block; }
+  .br-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin-bottom: 11px;
+  }
+  .br-title { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .br-info { font-size: 12px; color: var(--ink-4); }
+  .br-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 9px; max-height: 340px; overflow-y: auto; padding: 2px;
+  }
+  .br-item {
+    position: relative; border-radius: var(--radius-sm); overflow: hidden;
+    background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.10);
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .br-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .br-item .br-name {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    font-size: 9.5px; color: #0a0c12; background: rgba(255,255,255,.9);
+    padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 600;
+  }
+  .br-item.fail { background: rgba(248,113,113,.10); box-shadow: 0 0 0 1px rgba(248,113,113,.24); }
+  .br-item.fail::after {
+    content: '生成失败'; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; color: #f87171; font-weight: 600;
+  }
+  @media (max-width: 560px) { .batch-opts { grid-template-columns: 1fr; } }
+
   /* ================= 按钮 ================= */
   .actions { display: flex; gap: 10px; margin-top: 12px; }
   .btn {
@@ -1058,6 +1135,7 @@
           <div class="mode-switch" id="modeSwitch">
             <button class="active" data-mode="gen">生成</button>
             <button data-mode="scan">扫码</button>
+            <button data-mode="batch">批量</button>
           </div>
         </div>
 
@@ -1121,6 +1199,71 @@
             </div>
           </div>
         </div>
+
+        <!-- 批量模式 -->
+        <div class="batch-wrap" id="batchWrap">
+          <div class="batch-head">
+            <div>
+              <div class="batch-title">批量生成</div>
+              <div class="batch-sub">一次生成几十上百个二维码，打包成 ZIP 下载 · 完全免费</div>
+            </div>
+            <span class="batch-free">免费</span>
+          </div>
+
+          <div class="field">
+            <label>内容列表 <span class="lbl-hint">一行一个 · 逗号后是文件名（可省略）</span></label>
+            <textarea id="batchInput" class="batch-input" spellcheck="false" placeholder="https://example.com/1,产品一
+https://example.com/2,产品二
+https://example.com/3,产品三
+
+也可以不带文件名，自动按序号命名：
+张伟 13800138000
+李娜 13900139000"></textarea>
+          </div>
+
+          <div class="batch-opts">
+            <div class="field">
+              <label>文件名前缀</label>
+              <input type="text" id="batchPrefix" value="codeform" placeholder="codeform">
+            </div>
+            <div class="field">
+              <label>同时导出 <span class="lbl-hint">PNG 始终导出</span></label>
+              <div class="seg" id="batchSvg">
+                <button class="active" data-v="no">仅 PNG</button>
+                <button data-v="yes">PNG + SVG</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="batch-stat" id="batchStat">
+            <span class="bs-item"><b id="bsCount">0</b> 条内容</span>
+            <span class="bs-sep">·</span>
+            <span class="bs-item">沿用当前样式（<span id="bsStyle">直角 · 纠错M</span>）</span>
+          </div>
+
+          <div class="batch-warn" id="batchWarn"></div>
+
+          <div class="batch-progress" id="batchProgress">
+            <div class="bp-bar"><div class="bp-fill" id="bpFill"></div></div>
+            <div class="bp-text" id="bpText">0 / 0</div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="batchRun">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              开始生成并打包
+            </button>
+            <button class="btn" id="batchClear">清空</button>
+          </div>
+
+          <div class="batch-result" id="batchResult">
+            <div class="br-head">
+              <span class="br-title">生成结果</span>
+              <span class="br-info" id="brInfo"></span>
+            </div>
+            <div class="br-grid" id="brGrid"></div>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -1157,6 +1300,7 @@
 
 <script src="qrcode.js"></script>
 <script src="jsqr.js"></script>
+<script src="zip.js"></script>
 <script src="app.js"></script>
 <script>
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */

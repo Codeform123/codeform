@@ -127,71 +127,50 @@
   }
 
   // ---------- 绘制 ----------
-  function render() {
-    var content = getContent();
-
-    // 空内容占位
-    if (!content) {
-      ctx.fillStyle = '#0a0c12';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(154,167,194,.55)';
-      ctx.font = '500 30px -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('请输入内容生成二维码', canvas.width / 2, canvas.height / 2);
-      $('versionInfo').textContent = '版本 —';
-      $('sizeInfo').textContent = '—';
-      updateContrastWarn();
-      return;
-    }
-
+  // render() 是给单张预览用的：画到页面上的 canvas，并同步更新所有 UI 文案。
+  // 批量生成需要「把同样的画面画到另外的 canvas 上」，所以真正的绘制逻辑
+  // 抽在 renderTo() 里 —— 它接受目标 canvas 和一份设置快照，返回绘制结果信息。 */
+  function renderTo(targetCanvas, content, cfg) {
+    var c2d = targetCanvas.getContext('2d');
     var qr;
     try {
-      qr = window.QRCore.generate(content, state.ecLevel);
+      qr = window.QRCore.generate(content, cfg.ecLevel);
     } catch (e) {
-      ctx.fillStyle = '#0a0c12';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#f87171';
-      ctx.font = '500 28px -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('内容过长，请缩短或降低纠错等级', canvas.width / 2, canvas.height / 2);
-      return;
+      return null;   // 内容过长，调用方决定怎么处理
     }
 
     var count = qr.size;
-    var margin = state.margin;
+    var margin = cfg.margin;
     var total = count + margin * 2;
-    // 画布尺寸：以 module 整数倍绘制保证清晰
-    var target = state.exportSize || 600;
+    var target = cfg.exportSize || 600;
     var cell = Math.floor(target / total);
     if (cell < 1) cell = 1;
     var drawSize = cell * total;
 
-    canvas.width = drawSize;
-    canvas.height = drawSize;
+    targetCanvas.width = drawSize;
+    targetCanvas.height = drawSize;
 
     // 背景
-    ctx.fillStyle = state.bg;
-    ctx.fillRect(0, 0, drawSize, drawSize);
+    c2d.fillStyle = cfg.bg;
+    c2d.fillRect(0, 0, drawSize, drawSize);
 
     var offset = margin * cell;
 
     // 渐变填充准备
-    var fillStyle = state.fg;
-    if (state.gradOn) {
+    var fillStyle = cfg.fg;
+    if (cfg.gradOn) {
       var g;
-      if (state.gradDir === 'h') g = ctx.createLinearGradient(0, 0, drawSize, 0);
-      else if (state.gradDir === 'v') g = ctx.createLinearGradient(0, 0, 0, drawSize);
-      else g = ctx.createLinearGradient(0, 0, drawSize, drawSize);
-      g.addColorStop(0, state.gradA);
-      g.addColorStop(1, state.gradB);
+      if (cfg.gradDir === 'h') g = c2d.createLinearGradient(0, 0, drawSize, 0);
+      else if (cfg.gradDir === 'v') g = c2d.createLinearGradient(0, 0, 0, drawSize);
+      else g = c2d.createLinearGradient(0, 0, drawSize, drawSize);
+      g.addColorStop(0, cfg.gradA);
+      g.addColorStop(1, cfg.gradB);
       fillStyle = g;
     }
-    ctx.fillStyle = fillStyle;
+    c2d.fillStyle = fillStyle;
 
     var logosize = 0;
-    if (state.logoImg) logosize = Math.floor(drawSize * 0.22);
+    if (cfg.logoImg) logosize = Math.floor(drawSize * 0.22);
 
     // 定位图案区域判定（三个角 7x7）
     var inEye = {};
@@ -210,12 +189,7 @@
         if (inEye[r + ',' + c]) continue;   // 定位图案单独绘制
         var x = offset + c * cell;
         var y = offset + r * cell;
-        // 孤立模块判定：四邻皆空才做形状变化，保证连通区域不被切碎
-        var iso = !(qr.modules[r - 1] && qr.modules[r - 1][c])
-               && !(qr.modules[r + 1] && qr.modules[r + 1][c])
-               && !qr.modules[r][c - 1]
-               && !qr.modules[r][c + 1];
-        drawModule(x, y, cell, r, c, count, iso, qr);
+        drawModule(c2d, x, y, cell, r, c, count, qr, cfg);
       }
     }
 
@@ -224,50 +198,45 @@
     // 一旦它和背景太接近，整张码都会扫不出来。
     // 这里做一层保护——如果用户选的颜色对比度低于 3:1，自动回退到前景色，
     // 保证「好看」永远不会以「扫不出来」为代价。
-    var eyeSafe = state.eyeOn && contrast(state.eyeColor, state.bg) >= 3;
-    ctx.fillStyle = (eyeSafe ? state.eyeColor : fillStyle);
-    drawEye(offset, offset, cell);
-    drawEye(offset + (count - 7) * cell, offset, cell);
-    drawEye(offset, offset + (count - 7) * cell, cell);
+    var eyeSafe = cfg.eyeOn && contrast(cfg.eyeColor, cfg.bg) >= 3;
+    c2d.fillStyle = (eyeSafe ? cfg.eyeColor : fillStyle);
+    drawEye(c2d, offset, offset, cell, cfg);
+    drawEye(c2d, offset + (count - 7) * cell, offset, cell, cfg);
+    drawEye(c2d, offset, offset + (count - 7) * cell, cell, cfg);
 
     // Logo
-    if (state.logoImg) {
+    if (cfg.logoImg) {
       var ls = logosize;
       var lx = (drawSize - ls) / 2;
       var ly = (drawSize - ls) / 2;
       var pad = Math.max(3, ls * 0.10);
-      // 白色底
-      ctx.save();
-      ctx.fillStyle = state.bg;
-      roundRect(ctx, lx - pad, ly - pad, ls + pad * 2, ls + pad * 2, pad * 1.2);
-      ctx.fill();
-      // 圆形裁切 logo
-      ctx.beginPath();
-      ctx.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(state.logoImg, lx, ly, ls, ls);
-      ctx.restore();
+      c2d.save();
+      c2d.fillStyle = cfg.bg;
+      roundRect(c2d, lx - pad, ly - pad, ls + pad * 2, ls + pad * 2, pad * 1.2);
+      c2d.fill();
+      c2d.beginPath();
+      c2d.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
+      c2d.closePath();
+      c2d.clip();
+      c2d.drawImage(cfg.logoImg, lx, ly, ls, ls);
+      c2d.restore();
     }
 
     // 圆形/圆角绘制会产生抗锯齿灰边（实测占比约 2%），
     // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
-    // 仅在「纯色前景 + 非圆形图案」之外的情况下做硬阈值二值化：
-    //   - 渐变色需要保留中间色，不做处理
-    //   - 直角方块本身无灰边，无需处理
-    // 需要处理的场景：dot / liquid（或非方形定位图案）+ 纯色前景
-    var needBin = !state.gradOn && (state.dotStyle === 'dot' || state.dotStyle === 'liquid'
-                   || (state.eyeOn && state.eyeStyle !== 'square'));
+    // 仅在「纯色前景 + 非圆形图案」之外的情况下做硬阈值二值化。
+    var needBin = !cfg.gradOn && (cfg.dotStyle === 'dot' || cfg.dotStyle === 'liquid'
+                   || (cfg.eyeOn && cfg.eyeStyle !== 'square'));
     if (needBin) {
-      var imgData = ctx.getImageData(0, 0, drawSize, drawSize);
+      var imgData = c2d.getImageData(0, 0, drawSize, drawSize);
       var px = imgData.data;
       var logoBox = null;
-      if (state.logoImg) {
+      if (cfg.logoImg) {
         var lsz = logosize, lxx = (drawSize - lsz) / 2, lyy = (drawSize - lsz) / 2;
         var lpad = Math.max(3, lsz * 0.10) + 2;
         logoBox = { x0: lxx - lpad, y0: lyy - lpad, x1: lxx + lsz + lpad, y1: lyy + lsz + lpad };
       }
-      var bgLum = relLum(state.bg);
+      var bgLum = relLum(cfg.bg);
       var midLum = bgLum > 0.5 ? bgLum - 0.35 : bgLum + 0.35;   // 阈值偏向背景一侧
       for (var yy = 0; yy < drawSize; yy++) {
         if (logoBox && yy >= logoBox.y0 && yy <= logoBox.y1) continue;
@@ -279,17 +248,51 @@
           px[idx] = px[idx + 1] = px[idx + 2] = v;
         }
       }
-      ctx.putImageData(imgData, 0, 0);
+      c2d.putImageData(imgData, 0, 0);
     }
 
-    $('versionInfo').textContent = '版本 ' + qr.size + '×' + qr.size;
-    $('sizeInfo').textContent = '纠错 ' + state.ecLevel + ' · ' + drawSize + 'px';
+    return { size: qr.size, drawSize: drawSize, total: total, cell: cell };
+  }
+
+  function render() {
+    var content = getContent();
+
+    // 空内容占位
+    if (!content) {
+      ctx.fillStyle = '#0a0c12';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(154,167,194,.55)';
+      ctx.font = '500 30px -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('请输入内容生成二维码', canvas.width / 2, canvas.height / 2);
+      $('versionInfo').textContent = '版本 —';
+      $('sizeInfo').textContent = '—';
+      updateContrastWarn();
+      return;
+    }
+
+    var info = renderTo(canvas, content, state);
+
+    if (!info) {
+      ctx.fillStyle = '#0a0c12';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#f87171';
+      ctx.font = '500 28px -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('内容过长，请缩短或降低纠错等级', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    $('versionInfo').textContent = '版本 ' + info.size + '×' + info.size;
+    $('sizeInfo').textContent = '纠错 ' + state.ecLevel + ' · ' + info.drawSize + 'px';
     updateContrastWarn();
     // 目标尺寸与取整后实际像素不一致时，在按钮上标个小提示
     if ($('sizes')) {
       document.querySelectorAll('#sizes .sz').forEach(function (b) {
         var want = parseInt(b.dataset.v, 10);
-        var real = cell * total;
+        var real = info.cell * info.total;
         b.classList.toggle('adjusted', real !== want);
         b.title = real !== want ? ('导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）') : '';
       });
@@ -297,17 +300,17 @@
   }
 
   // 绘制单个定位图案（7x7 模块，左上角 x,y）
-  function drawEye(x, y, cell) {
+  function drawEye(g, x, y, cell, cfg) {
     var s = cell * 7;
-    var st = state.eyeStyle;
+    var st = cfg.eyeStyle;
 
     if (st === 'square') {
       // 外框 7x7 环，宽 1 模块
-      ctx.fillRect(x, y, s, cell);                    // 上
-      ctx.fillRect(x, y + s - cell, s, cell);         // 下
-      ctx.fillRect(x, y, cell, s);                    // 左
-      ctx.fillRect(x + s - cell, y, cell, s);         // 右
-      ctx.fillRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3); // 中心 3x3
+      g.fillRect(x, y, s, cell);                    // 上
+      g.fillRect(x, y + s - cell, s, cell);         // 下
+      g.fillRect(x, y, cell, s);                    // 左
+      g.fillRect(x + s - cell, y, cell, s);         // 右
+      g.fillRect(x + cell * 2, y + cell * 2, cell * 3, cell * 3); // 中心 3x3
       return;
     }
 
@@ -315,38 +318,38 @@
     var rInner = st === 'dot' ? (cell * 3) / 2 : cell * 0.95;
 
     // 外环（用 evenodd 挖空）
-    ctx.beginPath();
-    ctx.moveTo(x + rOuter, y);
-    ctx.arcTo(x + s, y, x + s, y + s, rOuter);
-    ctx.arcTo(x + s, y + s, x, y + s, rOuter);
-    ctx.arcTo(x, y + s, x, y, rOuter);
-    ctx.arcTo(x, y, x + s, y, rOuter);
-    ctx.closePath();
+    g.beginPath();
+    g.moveTo(x + rOuter, y);
+    g.arcTo(x + s, y, x + s, y + s, rOuter);
+    g.arcTo(x + s, y + s, x, y + s, rOuter);
+    g.arcTo(x, y + s, x, y, rOuter);
+    g.arcTo(x, y, x + s, y, rOuter);
+    g.closePath();
     // 内挖空
     var ix = x + cell, iy = y + cell, is = s - cell * 2;
-    ctx.moveTo(ix + rInner, iy);
-    ctx.arcTo(ix + is, iy, ix + is, iy + is, rInner);
-    ctx.arcTo(ix + is, iy + is, ix, iy + is, rInner);
-    ctx.arcTo(ix, iy + is, ix, iy, rInner);
-    ctx.arcTo(ix, iy, ix + is, iy, rInner);
-    ctx.closePath();
-    ctx.fill('evenodd');
+    g.moveTo(ix + rInner, iy);
+    g.arcTo(ix + is, iy, ix + is, iy + is, rInner);
+    g.arcTo(ix + is, iy + is, ix, iy + is, rInner);
+    g.arcTo(ix, iy + is, ix, iy, rInner);
+    g.arcTo(ix, iy, ix + is, iy, rInner);
+    g.closePath();
+    g.fill('evenodd');
 
     // 中心 3x3
     var cx = x + cell * 2, cy = y + cell * 2, cs = cell * 3;
-    ctx.beginPath();
+    g.beginPath();
     if (st === 'dot') {
-      ctx.arc(cx + cs / 2, cy + cs / 2, cs / 2, 0, Math.PI * 2);
+      g.arc(cx + cs / 2, cy + cs / 2, cs / 2, 0, Math.PI * 2);
     } else {
       var rr = Math.min(cell * 0.95, cs / 2);
-      ctx.moveTo(cx + rr, cy);
-      ctx.arcTo(cx + cs, cy, cx + cs, cy + cs, rr);
-      ctx.arcTo(cx + cs, cy + cs, cx, cy + cs, rr);
-      ctx.arcTo(cx, cy + cs, cx, cy, rr);
-      ctx.arcTo(cx, cy, cx + cs, cy, rr);
+      g.moveTo(cx + rr, cy);
+      g.arcTo(cx + cs, cy, cx + cs, cy + cs, rr);
+      g.arcTo(cx + cs, cy + cs, cx, cy + cs, rr);
+      g.arcTo(cx, cy + cs, cx, cy, rr);
+      g.arcTo(cx, cy, cx + cs, cy, rr);
     }
-    ctx.closePath();
-    ctx.fill();
+    g.closePath();
+    g.fill();
   }
 
   // ================= 码点形状绘制 =================
@@ -364,11 +367,11 @@
   // 如果该角任一方向上有邻居，就把这个角填成直角，让两个格子自然焊接成整体。
   // 这样连通区域的外轮廓就是一条光滑曲线，内部则完全连成一片，
   // 正是水/液态表面张力的效果。
-  function drawModule(x, y, cell, r, c, count, isolated, qr) {
-    var style = state.dotStyle;
+  function drawModule(g, x, y, cell, r, c, count, qr, cfg) {
+    var style = cfg.dotStyle;
 
     if (style === 'square') {
-      ctx.fillRect(x, y, cell, cell);
+      g.fillRect(x, y, cell, cell);
       return;
     }
 
@@ -377,9 +380,9 @@
     // 取 0.55 兼顾「圆点感明显」与「留有余量」。
     if (style === 'dot') {
       var dRad = cell * 0.55;
-      ctx.beginPath();
-      ctx.arc(x + cell / 2, y + cell / 2, dRad, 0, Math.PI * 2);
-      ctx.fill();
+      g.beginPath();
+      g.arc(x + cell / 2, y + cell / 2, dRad, 0, Math.PI * 2);
+      g.fill();
       return;
     }
 
@@ -398,22 +401,22 @@
       var bl = (!down && !left)  ? rad : 0;
 
       var w = cell, h = cell;
-      ctx.beginPath();
-      ctx.moveTo(x + tl, y);
-      ctx.lineTo(x + w - tr, y);
-      if (tr) ctx.arcTo(x + w, y, x + w, y + h, tr);
-      ctx.lineTo(x + w, y + h - br);
-      if (br) ctx.arcTo(x + w, y + h, x, y + h, br);
-      ctx.lineTo(x + bl, y + h);
-      if (bl) ctx.arcTo(x, y + h, x, y, bl);
-      ctx.lineTo(x, y + tl);
-      if (tl) ctx.arcTo(x, y, x + w, y, tl);
-      ctx.closePath();
-      ctx.fill();
+      g.beginPath();
+      g.moveTo(x + tl, y);
+      g.lineTo(x + w - tr, y);
+      if (tr) g.arcTo(x + w, y, x + w, y + h, tr);
+      g.lineTo(x + w, y + h - br);
+      if (br) g.arcTo(x + w, y + h, x, y + h, br);
+      g.lineTo(x + bl, y + h);
+      if (bl) g.arcTo(x, y + h, x, y, bl);
+      g.lineTo(x, y + tl);
+      if (tl) g.arcTo(x, y, x + w, y, tl);
+      g.closePath();
+      g.fill();
       return;
     }
 
-    ctx.fillRect(x, y, cell, cell);
+    g.fillRect(x, y, cell, cell);
   }
 
   // 判断 (r,c) 是否属于"实心"区域：网格内为真模块，或落在三个定位图案的 7×7 内。
@@ -775,16 +778,379 @@
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
   }
 
-  // ---------- 模式切换：生成 / 扫码 ----------
+  // ---------- 模式切换：生成 / 扫码 / 批量 ----------
   document.querySelectorAll('#modeSwitch button').forEach(function (b) {
     b.addEventListener('click', function () {
       document.querySelectorAll('#modeSwitch button').forEach(function (x) { x.classList.remove('active'); });
       b.classList.add('active');
-      var scan = b.dataset.mode === 'scan';
-      $('genWrap').classList.toggle('off', scan);
-      $('scanWrap').classList.toggle('on', scan);
+      var mode = b.dataset.mode;
+      var isScan = mode === 'scan';
+      var isBatch = mode === 'batch';
+      $('genWrap').classList.toggle('off', isScan || isBatch);
+      $('scanWrap').classList.toggle('on', isScan);
+      $('batchWrap').classList.toggle('on', isBatch);
+      if (isBatch) updateBatchStat();
     });
   });
+
+  // ================= 批量生成 =================
+  // 设计要点：
+  //   · 数据来源：粘贴文本，一行一条；行内出现逗号则逗号后当文件名
+  //   · 样式：完全沿用「生成」页当前设置 —— 用户先调好样式再切过来即可
+  //   · 交付：ZIP 打包一次下载（逐个下载会弹 N 次对话框，体验是灾难）
+  //   · 全程纯本地，不产生任何网络请求
+
+  var batchState = { svg: false, items: [] };
+
+  // 把 textarea 内容解析成 [{ content, name }]
+  function parseBatchInput(raw) {
+    var lines = String(raw || '').split(/\r?\n/);
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;                 // 空行跳过
+      if (line.charAt(0) === '#') continue; // # 开头当注释
+
+      var content = line, name = '';
+      var comma = line.indexOf(',');       // 英文逗号
+      if (comma < 0) comma = line.indexOf('，');   // 中文逗号也认
+      if (comma > 0) {
+        content = line.slice(0, comma).trim();
+        name = line.slice(comma + 1).trim();
+      }
+      if (!content) continue;
+      out.push({ content: content, name: name, line: i + 1 });
+    }
+    return out;
+  }
+
+  // 文件名安全化：去掉路径分隔符、Windows 非法字符，以及逗号。
+  // 逗号在 ZIP 里虽然合法，但会让用户后续用表格/脚本处理时被当成分隔符，统一换成下划线。
+  function safeName(s) {
+    return String(s).replace(/[\\/:*?"<>|,，]/g, '_').trim().replace(/\s+/g, ' ');
+  }
+
+  function pad3(n) { return ('00' + n).slice(-3); }
+
+  // 单个文件名不宜过长（部分系统有 255 字节限制，中文占 3 字节），截断到 40 字符
+  function clampName(s, n) {
+    s = String(s || '');
+    if (s.length <= n) return s;
+    return s.slice(0, n);
+  }
+
+  // 样式描述，显示在统计条里，让用户明确知道会用什么样式
+  function styleLabel() {
+    var shape = { square: '直角', dot: '圆角', liquid: '液态' }[state.dotStyle] || '直角';
+    var s = shape + ' · 纠错' + state.ecLevel;
+    if (state.gradOn) s += ' · 渐变';
+    if (state.logoImg) s += ' · Logo';
+    return s;
+  }
+
+  function updateBatchStat() {
+    var items = parseBatchInput($('batchInput').value);
+    batchState.items = items;
+    $('bsCount').textContent = items.length;
+    $('bsStyle').textContent = styleLabel();
+
+    // 预估：最大内容决定版本号；顺便提示哪些行内容过长会被跳过
+    var tooLong = [];
+    for (var i = 0; i < items.length; i++) {
+      var probe = window.QRCore.probe
+        ? window.QRCore.probe(items[i].content, state.ecLevel)
+        : true;
+      if (!probe) tooLong.push(items[i].line);
+    }
+    var warn = $('batchWarn');
+    if (tooLong.length) {
+      warn.classList.add('on');
+      warn.textContent = '有 ' + tooLong.length + ' 条内容超出二维码容量上限（第 '
+        + tooLong.slice(0, 12).join('、') + (tooLong.length > 12 ? ' 等' : '')
+        + ' 行），生成时会被跳过。建议缩短内容或降低纠错等级。';
+    } else {
+      warn.classList.remove('on');
+      warn.textContent = '';
+    }
+    return items;
+  }
+
+  // ---------- 批量：生成 + 打包 ----------
+
+  // 把当前样式复制一份给批量用。
+  // 必须深拷贝：批量循环里会改 exportSize，直接引用 state 会污染单张预览。
+  function snapshotConfig() {
+    return {
+      fg: state.fg, bg: state.bg, dotStyle: state.dotStyle,
+      ecLevel: state.ecLevel, margin: state.margin, logoImg: state.logoImg,
+      gradOn: state.gradOn, gradA: state.gradA, gradB: state.gradB, gradDir: state.gradDir,
+      eyeStyle: state.eyeStyle, eyeOn: state.eyeOn, eyeColor: state.eyeColor,
+      exportSize: state.exportSize
+    };
+  }
+
+  // 从 canvas 拿到 PNG 字节（不用 toDataURL，省一次 base64 编解码）
+  function canvasToBytes(cv) {
+    return new Promise(function (resolve, reject) {
+      cv.toBlob(function (blob) {
+        if (!blob) return reject(new Error('toBlob 失败'));
+        var fr = new FileReader();
+        fr.onload = function () { resolve(new Uint8Array(fr.result)); };
+        fr.onerror = function () { reject(fr.error); };
+        fr.readAsArrayBuffer(blob);
+      }, 'image/png');
+    });
+  }
+
+  // SVG 导出（与单张导出的算法保持一致）
+  function buildSvg(content, cfg) {
+    var qr;
+    try { qr = window.QRCore.generate(content, cfg.ecLevel); }
+    catch (e) { return null; }
+
+    var count = qr.size, margin = cfg.margin, total = count + margin * 2;
+    var defs = '', fillRef = cfg.fg;
+    var gid = 'qg' + Math.random().toString(36).slice(2, 8);
+
+    if (cfg.gradOn) {
+      fillRef = 'url(#' + gid + ')';
+      var x1 = '0%', y1 = '0%', x2 = '100%', y2 = '100%';
+      if (cfg.gradDir === 'h') { x2 = '100%'; y2 = '0%'; }
+      else if (cfg.gradDir === 'v') { x2 = '0%'; y2 = '100%'; }
+      defs = '<defs><linearGradient id="' + gid + '" x1="' + x1 + '" y1="' + y1
+        + '" x2="' + x2 + '" y2="' + y2 + '">'
+        + '<stop offset="0%" stop-color="' + cfg.gradA + '"/>'
+        + '<stop offset="100%" stop-color="' + cfg.gradB + '"/></linearGradient></defs>';
+    }
+    var eyeFill = (cfg.eyeOn && contrast(cfg.eyeColor, cfg.bg) >= 3) ? cfg.eyeColor : fillRef;
+
+    var out = ['<?xml version="1.0" encoding="UTF-8"?>',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total
+      + '" width="' + cfg.exportSize + '" height="' + cfg.exportSize
+      + '" shape-rendering="crispEdges">',
+      defs,
+      '<rect width="' + total + '" height="' + total + '" fill="' + cfg.bg + '"/>'];
+
+    var eyeMap = {};
+    function mk(r0, c0) {
+      for (var i = 0; i < 7; i++) for (var j = 0; j < 7; j++) eyeMap[(r0 + i) + ',' + (c0 + j)] = 1;
+    }
+    mk(0, 0); mk(0, count - 7); mk(count - 7, 0);
+
+    for (var r = 0; r < count; r++) for (var c = 0; c < count; c++) {
+      if (!qr.modules[r][c] || eyeMap[r + ',' + c]) continue;
+      var bx = c + margin, by = r + margin;
+      if (cfg.dotStyle === 'square') {
+        out.push('<rect x="' + bx + '" y="' + by + '" width="1" height="1" fill="' + fillRef + '"/>');
+      } else if (cfg.dotStyle === 'dot') {
+        out.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.55" fill="' + fillRef + '"/>');
+      } else {
+        var up = isFilled(qr, r - 1, c, count), down = isFilled(qr, r + 1, c, count);
+        var lf = isFilled(qr, r, c - 1, count), rt = isFilled(qr, r, c + 1, count);
+        var rd = '0.5';
+        var tl = (!up && !lf) ? rd : '0', tr = (!up && !rt) ? rd : '0';
+        var br = (!down && !rt) ? rd : '0', bl = (!down && !lf) ? rd : '0';
+        var dx = bx, dy = by;
+        var d = 'M' + (dx + (+tl)) + ' ' + dy
+          + 'H' + (dx + 1 - (+tr))
+          + (tr !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1) + ' ' + (dy + (+tr)) : '')
+          + 'V' + (dy + 1 - (+br))
+          + (br !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + 1 - (+br)) + ' ' + (dy + 1) : '')
+          + 'H' + (dx + (+bl))
+          + (bl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + dx + ' ' + (dy + 1 - (+bl)) : '')
+          + 'V' + (dy + (+tl))
+          + (tl !== '0' ? 'A' + rd + ' ' + rd + ' 0 0 1 ' + (dx + (+tl)) + ' ' + dy : '')
+          + 'Z';
+        out.push('<path d="' + d + '" fill="' + fillRef + '"/>');
+      }
+    }
+
+    // 定位图案
+    var eyes = [[0, 0], [count - 7, 0], [0, count - 7]];
+    var dpath = eyes.map(function (e) {
+      var ox = e[0] + margin, oy = e[1] + margin;
+      return 'M' + (ox + 7) + ' ' + oy + 'H' + ox + 'V' + (oy + 7) + 'H' + (ox + 7) + 'Z'
+        + 'M' + (ox + 1) + ' ' + (oy + 1) + 'V' + (oy + 6) + 'H' + (ox + 6) + 'V' + (oy + 1) + 'Z';
+    }).join(' ');
+    out.push('<path d="' + dpath + '" fill="' + eyeFill + '" fill-rule="evenodd"/>');
+    eyes.forEach(function (e) {
+      out.push('<rect x="' + (e[0] + margin + 2) + '" y="' + (e[1] + margin + 2)
+        + '" width="3" height="3" fill="' + eyeFill + '"/>');
+    });
+
+    out.push('</svg>');
+    return out.join('');
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  var batchBusy = false;
+
+  function runBatch() {
+    if (batchBusy) return;
+    var items = updateBatchStat();
+    if (!items.length) { toast('请先粘贴内容列表'); return; }
+    if (items.length > 500) { toast('一次最多 500 条，请分批处理'); return; }
+
+    batchBusy = true;
+    var btn = $('batchRun');
+    var originalBtn = btn.innerHTML;
+    btn.disabled = true;
+
+    var cfg = snapshotConfig();
+    var prefix = safeName($('batchPrefix').value) || 'codeform';
+    var withSvg = batchState.svg;
+
+    var progress = $('batchProgress');
+    var fill = $('bpFill');
+    var ptext = $('bpText');
+    progress.classList.add('on');
+    fill.style.width = '0%';
+    ptext.textContent = '0 / ' + items.length;
+
+    // 先把上一轮结果清掉
+    $('brGrid').innerHTML = '';
+    $('batchResult').classList.remove('on');
+
+    var zip = new window.ZipLite();
+    var okCount = 0;
+    var failures = [];
+    var previews = [];
+
+    // 用 requestAnimationFrame 分片推进，避免长任务把页面卡死
+    function step(i) {
+      if (i >= items.length) return finish();
+
+      var it = items[i];
+      var cv = document.createElement('canvas');
+      var info = null;
+      var nameBase = prefix + '-' + pad3(i + 1)
+        + (it.name ? '-' + clampName(safeName(it.name), 40) : '');
+
+      try {
+        info = renderTo(cv, it.content, cfg);
+      } catch (e) {
+        info = null;
+      }
+
+      if (!info) {
+        failures.push({ line: it.line, name: it.name || it.content.slice(0, 20) });
+        i++;
+        fill.style.width = (i / items.length * 100) + '%';
+        ptext.textContent = i + ' / ' + items.length;
+        return requestAnimationFrame(function () { step(i); });
+      }
+
+      canvasToBytes(cv).then(function (bytes) {
+        zip.add(nameBase + '.png', bytes);
+        if (withSvg) {
+          var svg = buildSvg(it.content, cfg);
+          if (svg) zip.add(nameBase + '.svg', svg);
+        }
+        okCount++;
+        previews.push({ url: URL.createObjectURL(new Blob([bytes], { type: 'image/png' })),
+                        label: (it.name || ('#' + pad3(i + 1))), ok: true });
+
+        i++;
+        fill.style.width = (i / items.length * 100) + '%';
+        ptext.textContent = i + ' / ' + items.length;
+        requestAnimationFrame(function () { step(i); });
+      }).catch(function () {
+        failures.push({ line: it.line, name: it.name || it.content.slice(0, 20) });
+        i++;
+        fill.style.width = (i / items.length * 100) + '%';
+        ptext.textContent = i + ' / ' + items.length;
+        requestAnimationFrame(function () { step(i); });
+      });
+    }
+
+    function finish() {
+      batchBusy = false;
+      btn.disabled = false;
+      btn.innerHTML = originalBtn;
+      fill.style.width = '100%';
+      ptext.textContent = items.length + ' / ' + items.length + ' · 完成';
+
+      if (!okCount) {
+        toast('全部生成失败，请检查内容');
+        return;
+      }
+
+      var blob = zip.build();
+      var stamp = new Date().toISOString().slice(0, 10);
+      var fname = prefix + '-' + okCount + '个-' + stamp + '.zip';
+      downloadBlob(blob, fname);
+
+      // 结果展示
+      var grid = $('brGrid');
+      previews.forEach(function (p) {
+        var d = document.createElement('div');
+        d.className = 'br-item';
+        d.innerHTML = '<img src="' + p.url + '" alt=""><span class="br-name">'
+          + p.label.replace(/[<>&]/g, '') + '</span>';
+        grid.appendChild(d);
+      });
+      failures.forEach(function (f) {
+        var d = document.createElement('div');
+        d.className = 'br-item fail';
+        d.title = '第 ' + f.line + ' 行：' + f.name;
+        grid.appendChild(d);
+      });
+      $('brInfo').textContent = okCount + ' 个成功'
+        + (failures.length ? ' · ' + failures.length + ' 个跳过' : '')
+        + ' · ' + (blob.size / 1024 / 1024).toFixed(2) + ' MB';
+      $('batchResult').classList.add('on');
+
+      var msg = '已生成 ' + okCount + ' 个二维码';
+      if (failures.length) msg += '，' + failures.length + ' 个内容过长被跳过';
+      toast(msg);
+    }
+
+    requestAnimationFrame(function () { step(0); });
+  }
+
+  // ---------- 批量：事件绑定 ----------
+  var batchInputEl = $('batchInput');
+  if (batchInputEl) {
+    var batchDebounce;
+    batchInputEl.addEventListener('input', function () {
+      clearTimeout(batchDebounce);
+      batchDebounce = setTimeout(updateBatchStat, 220);
+    });
+
+    document.querySelectorAll('#batchSvg button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('#batchSvg button').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        batchState.svg = b.dataset.v === 'yes';
+      });
+    });
+
+    $('batchRun').addEventListener('click', runBatch);
+
+    $('batchClear').addEventListener('click', function () {
+      $('batchInput').value = '';
+      $('brGrid').innerHTML = '';
+      $('batchResult').classList.remove('on');
+      $('batchProgress').classList.remove('on');
+      updateBatchStat();
+    });
+
+    // 样式变了就刷新统计条上的样式说明
+    ['dotStyle', 'ecLevel', 'gradOn', 'eyeOn'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.addEventListener('click', function () { setTimeout(updateBatchStat, 0); });
+    });
+  }
 
   // ---------- 扫码解码 ----------
   var lastScanText = '';

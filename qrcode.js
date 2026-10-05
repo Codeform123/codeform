@@ -2328,6 +2328,18 @@ var qrcode = function() {
   }
 
   window.QRCore = {
+    // 只判断"能不能装下"，不真正构建矩阵。
+    // 批量生成前用它快速筛出超容量的行，避免生成到一半才发现失败。
+    probe: function (text, ecLevel) {
+      try {
+        var qr = qrcode(0, { L: 'L', M: 'M', Q: 'Q', H: 'H' }[ecLevel] || 'M');
+        qr.addData(bytesToBinStr(utf8Bytes(String(text))), 'Byte');
+        qr.make();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
     generate: function (text, ecLevel, forced) {
       var ecMap = { L: 'L', M: 'M', Q: 'Q', H: 'H' };
       var typeNumber = forced || 0;
