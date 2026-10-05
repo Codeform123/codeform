@@ -312,23 +312,100 @@
     ctx.fill();
   }
 
-  // 绘制单个码点。isolated = 四邻皆空，可安全画成圆/圆角；否则画方形保证连通性
+  // 绘制单个码点
+  // isolated: 四邻皆空，可画成完整圆形/圆角形
+  // 非孤立模块：方形铺底保证连通，再按"外露的角"单独做圆角，形成连片的圆润感
   function drawModule(x, y, cell, r, c, count, isolated, qr) {
-    if (state.dotStyle === 'square' || !isolated) {
+    var style = state.dotStyle;
+
+    if (style === 'square') {
       ctx.fillRect(x, y, cell, cell);
       return;
     }
-    if (state.dotStyle === 'dot') {
-      // 孤立模块：画圆点（直径填满格子，外形是圆，但与邻居无接触风险）
-      var radius = cell / 2;
-      ctx.beginPath();
-      ctx.arc(x + cell / 2, y + cell / 2, radius, 0, Math.PI * 2);
-      ctx.fill();
-    } else { // rounded 圆角
-      var gap = Math.max(0.3, cell * 0.05);
-      roundRect(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap, Math.max(1, cell * 0.42));
-      ctx.fill();
+
+    function on(rr, cc) {
+      return rr >= 0 && rr < count && cc >= 0 && cc < count && qr.modules[rr][cc];
     }
+
+    if (isolated) {
+      if (style === 'dot') {
+        ctx.beginPath();
+        ctx.arc(x + cell / 2, y + cell / 2, cell / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        var g0 = Math.max(0.4, cell * 0.10);
+        roundRect(ctx, x + g0 / 2, y + g0 / 2, cell - g0, cell - g0, Math.max(1, (cell - g0) * 0.30));
+        ctx.fill();
+      }
+      return;
+    }
+
+    // 非孤立模块
+    if (style === 'dot') {
+      // 圆点模式：连片区域必须铺满以保证可扫。
+      // 对"仅单侧相连"的末梢模块，用半圆收尾，呈现圆点串珠的观感；
+      // 多侧相连的枢纽模块保持方形，避免切碎连通区。
+      var cnt = (on(r - 1, c) ? 1 : 0) + (on(r + 1, c) ? 1 : 0)
+              + (on(r, c - 1) ? 1 : 0) + (on(r, c + 1) ? 1 : 0);
+      if (cnt !== 1) { ctx.fillRect(x, y, cell, cell); return; }
+      var rad2 = cell / 2;
+      ctx.beginPath();
+      if (on(r - 1, c)) {            // 上连：下方画半圆
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + cell, y);
+        ctx.lineTo(x + cell, y + cell / 2);
+        ctx.arcTo(x + cell, y + cell, x, y + cell, rad2);
+        ctx.arcTo(x, y + cell, x, y + cell / 2, rad2);
+      } else if (on(r + 1, c)) {     // 下连：上方画半圆
+        ctx.moveTo(x + cell, y + cell);
+        ctx.lineTo(x, y + cell);
+        ctx.lineTo(x, y + cell / 2);
+        ctx.arcTo(x, y, x + cell, y, rad2);
+        ctx.arcTo(x + cell, y, x + cell, y + cell / 2, rad2);
+      } else if (on(r, c - 1)) {     // 左连：右侧画半圆
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + cell / 2, y);
+        ctx.arcTo(x + cell, y, x + cell, y + cell, rad2);
+        ctx.arcTo(x + cell, y + cell, x + cell / 2, y + cell, rad2);
+        ctx.lineTo(x, y + cell);
+      } else {                        // 右连：左侧画半圆
+        ctx.moveTo(x + cell, y);
+        ctx.lineTo(x + cell / 2, y);
+        ctx.arcTo(x, y, x, y + cell, rad2);
+        ctx.arcTo(x, y + cell, x + cell / 2, y + cell, rad2);
+        ctx.lineTo(x + cell, y + cell);
+      }
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+
+    // 圆角模式：按每个外露角分别画圆角，内部角保持直角（与邻居贴合）
+    var rad = cell * 0.34;
+    var tl = !on(r - 1, c) && !on(r, c - 1);
+    var tr = !on(r - 1, c) && !on(r, c + 1);
+    var br = !on(r + 1, c) && !on(r, c + 1);
+    var bl = !on(r + 1, c) && !on(r, c - 1);
+    if (!tl && !tr && !br && !bl) { ctx.fillRect(x, y, cell, cell); return; }
+
+    ctx.beginPath();
+    // 左上
+    if (tl) { ctx.moveTo(x, y + rad); ctx.arcTo(x, y, x + rad, y, rad); }
+    else ctx.moveTo(x, y);
+    // 上边 → 右上
+    if (tr) { ctx.lineTo(x + cell - rad, y); ctx.arcTo(x + cell, y, x + cell, y + rad, rad); }
+    else ctx.lineTo(x + cell, y);
+    // 右边 → 右下
+    if (br) { ctx.lineTo(x + cell, y + cell - rad); ctx.arcTo(x + cell, y + cell, x + cell - rad, y + cell, rad); }
+    else ctx.lineTo(x + cell, y + cell);
+    // 下边 → 左下
+    if (bl) { ctx.lineTo(x + rad, y + cell); ctx.arcTo(x, y + cell, x, y + cell - rad, rad); }
+    else ctx.lineTo(x, y + cell);
+    // 左边 → 收口
+    if (tl) { ctx.lineTo(x, y + rad); }
+    else { ctx.lineTo(x, y); }
+    ctx.closePath();
+    ctx.fill();
   }
 
   function roundRect(c, x, y, w, h, rad) {
@@ -581,7 +658,10 @@
       } else if (state.dotStyle === 'dot') {
         svg.push('<circle cx="' + (bx + 0.5) + '" cy="' + (by + 0.5) + '" r="0.5" fill="' + fillRef + '"/>');
       } else {
-        svg.push('<rect x="' + (bx + 0.02) + '" y="' + (by + 0.02) + '" width="0.96" height="0.96" rx="0.42" fill="' + fillRef + '"/>');
+        // 圆角方形：与画布参数保持一致（gap 0.10、圆角半径 0.27）
+        var sg = 0.10;
+        var sr = (1 - sg) * 0.30;
+        svg.push('<rect x="' + (bx + sg / 2) + '" y="' + (by + sg / 2) + '" width="' + (1 - sg) + '" height="' + (1 - sg) + '" rx="' + sr + '" fill="' + fillRef + '"/>');
       }
     }
 

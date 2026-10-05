@@ -2297,20 +2297,56 @@ var qrcode = function() {
 }));
 
 /* 适配层：统一导出 */
-window.QRCore = {
-  generate: function (text, ecLevel, forced) {
-    var ecMap = { L: 'L', M: 'M', Q: 'Q', H: 'H' };
-    var typeNumber = forced || 0;
-    var qr = qrcode(typeNumber, ecMap[ecLevel] || 'M');
-    qr.addData(text, 'Byte');
-    qr.make();
-    var count = qr.getModuleCount();
-    var modules = [];
-    for (var r = 0; r < count; r++) {
-      var row = [];
-      for (var c = 0; c < count; c++) row.push(qr.isDark(r, c) ? 1 : 0);
-      modules.push(row);
+(function () {
+  // 把 JS 字符串转成 UTF-8 字节数组。
+  // 库自带的 default 转换是 c & 0xff，会把中文等多字节字符截断，导致扫码结果全是乱码。
+  function utf8Bytes(str) {
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) {
+        out.push(c);
+      } else if (c < 0x800) {
+        out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+        // surrogate pair → 4 字节
+        var c2 = str.charCodeAt(++i);
+        var cp = 0x10000 + (((c & 0x3ff) << 10) | (c2 & 0x3ff));
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f),
+                 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      } else {
+        out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
     }
-    return { modules: modules, size: count, version: qr.getModuleCount() };
+    return out;
   }
-};
+  // 字节数组 → 仅含 0-255 的字符串（库后续的 & 0xff 对它是无损的）
+  function bytesToBinStr(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return s;
+  }
+
+  window.QRCore = {
+    generate: function (text, ecLevel, forced) {
+      var ecMap = { L: 'L', M: 'M', Q: 'Q', H: 'H' };
+      var typeNumber = forced || 0;
+      var qr = qrcode(typeNumber, ecMap[ecLevel] || 'M');
+      var bytes = utf8Bytes(String(text));
+
+      // 纯 ASCII 走 Byte 模式即可；含中文时显式声明 UTF-8 字节长度，
+      // 避免库按字符数（而非字节数）估算容量，造成版本选择偏小、内容被截断。
+      qr.addData(bytesToBinStr(bytes), 'Byte');
+
+      qr.make();
+      var count = qr.getModuleCount();
+      var modules = [];
+      for (var r = 0; r < count; r++) {
+        var row = [];
+        for (var c = 0; c < count; c++) row.push(qr.isDark(r, c) ? 1 : 0);
+        modules.push(row);
+      }
+      return { modules: modules, size: count, version: count, bytes: bytes.length };
+    }
+  };
+})();
