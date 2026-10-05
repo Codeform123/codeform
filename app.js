@@ -11,7 +11,7 @@
     ecLevel: 'M',
     margin: 4,
     logoImg: null,
-    logoIcon: null,   // 内置图标键（与 logoImg 二选一，共用中心位置）
+    frameShape: 'square',   // 整体轮廓形状：square/rounded/circle/heart/petal/diamond/hexagon
     // 第二批
     gradOn: false,
     gradA: '#0c2a6b',
@@ -163,12 +163,57 @@
   }
 
   // ---------- 绘制 ----------
-  // 中心放了 Logo / 图标时，画面中央约 22%（含衬底 ≈26%）的码字被盖住。
+  // 中心放了 Logo 时，画面中央约 22%（含衬底 ≈26%）的码字被盖住。
   // 实测（zbar 真机解码）：M/Q 级纠错全部扫不出，只有 H（≈30% 冗余）能稳过。
   // 所以渲染时强制 H —— 这与「好看永远不以扫不出来为代价」的原则一致，
   // 微信码也是这么做的。UI 侧（bindSeg ecLevel）会同步锁定，避免显示与实际不一致。
   function effEc(cfg) {
-    return (cfg.logoImg || cfg.logoIcon) ? 'H' : cfg.ecLevel;
+    return cfg.logoImg ? 'H' : cfg.ecLevel;
+  }
+
+  // ---- 整体轮廓形状：统一解析 ----
+  // Canvas 与 SVG 两条渲染路径都必须走这里拿形状，
+  // 绝不各自 inline 判断 —— 否则就会出现「预览是圆形、导出是方形」。
+  // 帧形状不遮挡任何码点（形状只在码区外长出来），所以不需要像 Logo 那样强制 H。
+  function shapeKeyOf(cfg) {
+    var k = cfg && cfg.frameShape;
+    if (window.FrameShapes && window.FrameShapes.keys.indexOf(k) >= 0) return k;
+    return 'square';
+  }
+
+  // 形状包住码区所需的画布放大倍率（方形恒为 1）
+  function shapeRatio(cfg) {
+    if (!window.FrameShapes) return 1;
+    return window.FrameShapes.fitRatio(shapeKeyOf(cfg));
+  }
+
+  // ---- 布局求解（Canvas 与 SVG 共用，杜绝两条路径算出不同画幅）----
+  // total   码区模块数（含静默边距）
+  // target  用户选的目标画幅（像素）
+  // ratio   形状的最小安全倍率
+  //
+  // 方形：画幅 = 码区边长。模块必须整数像素对齐，否则会出现半像素的模糊边界，
+  //       所以方码拿到 592 而不是 600 是刻意的（也是它一直以来的行为）。
+  //
+  // 异形：画幅精确命中 target。形状倍率放大到 canvasSize/drawSize，
+  //       这个值恒 ≥ 最小安全倍率（因为 drawSize ≤ target/ratio），
+  //       所以码区照样被完整包住，只是留白比最小值多一点。
+  //       不这么做的话：菱形 cell 从 7.99 取整到 7，画幅只剩 526 —— 用户选 600
+  //       拿到 526，怎么看都像 bug。
+  function solveLayout(total, target, shapeKey, ratio) {
+    var cell = Math.floor(target / ratio / total);
+    if (cell < 1) cell = 1;
+    var drawSize = cell * total;
+    var canvasSize = (shapeKey === 'square')
+      ? drawSize
+      : Math.max(target, Math.round(drawSize * ratio));
+    return {
+      cell: cell,
+      drawSize: drawSize,
+      canvasSize: canvasSize,
+      shapeRatio: canvasSize / drawSize,
+      pad: Math.round((canvasSize - drawSize) / 2)
+    };
   }
 
   // render() 是给单张预览用的：画到页面上的 canvas，并同步更新所有 UI 文案。
@@ -187,26 +232,44 @@
     var margin = cfg.margin;
     var total = count + margin * 2;
     var target = cfg.exportSize || 600;
-    var cell = Math.floor(target / total);
-    if (cell < 1) cell = 1;
-    var drawSize = cell * total;
 
-    targetCanvas.width = drawSize;
-    targetCanvas.height = drawSize;
+    // ---- 异形轮廓：先按「码区占最终画布的比例」反推模块大小 ----
+    // 形状只往外长、绝不裁码，所以最终画布 = 码区 × fitRatio，
+    // 而 exportSize 指的是最终画布边长 —— 得先除回去，模块才是整数对齐的。
+    var shapeKey = shapeKeyOf(cfg);
+    var ratio = shapeRatio(cfg);
+    var L = solveLayout(total, target, shapeKey, ratio);
+    var cell = L.cell;                 // 模块像素大小
+    var drawSize = L.drawSize;         // 码区边长（含静默边距）
+    var canvasSize = L.canvasSize;     // 最终画布边长
 
-    // 背景
-    c2d.fillStyle = cfg.bg;
-    c2d.fillRect(0, 0, drawSize, drawSize);
+    targetCanvas.width = canvasSize;
+    targetCanvas.height = canvasSize;
 
+    // 码区在画布里居中
     var offset = margin * cell;
+    var padX = L.pad;
+    var padY = L.pad;
+    offset += padX;   // 码区左上角：静默边距 + 形状留白
 
-    // 渐变填充准备
+    // 背景：先清空（形状之外保持透明，导出后能直接贴到任何底图上），
+    // 再把形状内部填成背景色。
+    c2d.clearRect(0, 0, canvasSize, canvasSize);
+    c2d.fillStyle = cfg.bg;
+    if (shapeKey === 'square') {
+      c2d.fillRect(0, 0, canvasSize, canvasSize);
+    } else {
+      c2d.fill(window.FrameShapes.path2d(shapeKey, canvasSize, canvasSize / 2, canvasSize / 2));
+    }
+
+    // 渐变填充准备（以码区为参照，形状留白不参与渐变范围）
     var fillStyle = cfg.fg;
     if (cfg.gradOn) {
       var g;
-      if (cfg.gradDir === 'h') g = c2d.createLinearGradient(0, 0, drawSize, 0);
-      else if (cfg.gradDir === 'v') g = c2d.createLinearGradient(0, 0, 0, drawSize);
-      else g = c2d.createLinearGradient(0, 0, drawSize, drawSize);
+      var gx = padX, gy = padY, gs = drawSize;
+      if (cfg.gradDir === 'h') g = c2d.createLinearGradient(gx, gy, gx + gs, gy);
+      else if (cfg.gradDir === 'v') g = c2d.createLinearGradient(gx, gy, gx, gy + gs);
+      else g = c2d.createLinearGradient(gx, gy, gx + gs, gy + gs);
       g.addColorStop(0, cfg.gradA);
       g.addColorStop(1, cfg.gradB);
       fillStyle = g;
@@ -214,7 +277,7 @@
     c2d.fillStyle = fillStyle;
 
     var logosize = 0;
-    if (cfg.logoImg || cfg.logoIcon) logosize = Math.floor(drawSize * 0.22);
+    if (cfg.logoImg) logosize = Math.floor(drawSize * 0.22);
 
     // 定位图案区域判定（三个角 7x7）
     var inEye = {};
@@ -248,45 +311,23 @@
     drawEye(c2d, offset + (count - 7) * cell, offset, cell, cfg);
     drawEye(c2d, offset, offset + (count - 7) * cell, cell, cfg);
 
-    // ---- 中心 Logo：上传图片 或 内置图标（二选一，共用同一块位置）----
-    //
-    // 【设计】衬底 = 前景色实心圆角plate，图标 = 背景色镂空。
-    //   早先的实现是「衬底背景色 + 图标背景色」，白画白直接隐形；
-    //   而正确的「衬底前景色 + 图标背景色」不仅让图标清晰可见，
-    //   还把中心那块从「22% 码宽的纯背景色空洞」变成「深色实心块」——
-    //   前者会掏空纠错容量导致扫不出，后者反而像一块大码点，对解码更友好。
-    if (cfg.logoImg || cfg.logoIcon) {
+    // ---- 中心 Logo（用户自己上传的图片，圆形裁切）----
+    // 衬底用前景色圆角块：既让 Logo 四周有一圈干净留白，也避免中心出现
+    // 一大片背景色空洞掏空纠错容量。
+    if (cfg.logoImg) {
       var ls = logosize;
-      var lx = (drawSize - ls) / 2;
-      var ly = (drawSize - ls) / 2;
+      var lx = (canvasSize - ls) / 2;
+      var ly = (canvasSize - ls) / 2;
       var pad = Math.max(3, ls * 0.10);
       c2d.save();
-
-      // 衬底：圆角plate。纯色时用前景色；渐变时用渐变本身（与码点同源）。
       c2d.fillStyle = fillStyle;
       roundRect(c2d, lx - pad, ly - pad, ls + pad * 2, ls + pad * 2, pad * 1.2);
       c2d.fill();
-
-      // 图标/图片镂出来的部分统一用背景色 —— 和衬底形成最大反差。
-      var cut = cfg.bg;
-
-      if (cfg.logoIcon && window.IconLib) {
-        // 内置图标：用背景色在前景色衬底上"挖"出图形，任何配色下都清晰。
-        // 图标只占内接方形的 78%，四边留出与衬底相接的呼吸空间。
-        var icoBox = ls * 0.78;
-        window.IconLib.drawIcon(
-          c2d, cfg.logoIcon,
-          lx + (ls - icoBox) / 2, ly + (ls - icoBox) / 2,
-          icoBox, cut
-        );
-      } else {
-        // 上传图片：圆形裁切（原有行为）
-        c2d.beginPath();
-        c2d.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
-        c2d.closePath();
-        c2d.clip();
-        c2d.drawImage(cfg.logoImg, lx, ly, ls, ls);
-      }
+      c2d.beginPath();
+      c2d.arc(lx + ls / 2, ly + ls / 2, ls / 2, 0, Math.PI * 2);
+      c2d.closePath();
+      c2d.clip();
+      c2d.drawImage(cfg.logoImg, lx, ly, ls, ls);
       c2d.restore();
     }
 
@@ -294,29 +335,30 @@
     // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
     //
     // 二值化只在「纯色前景」下做（渐变必须保留，不能压成纯色，这是硬约束）。
-    // 触发条件：码点带弧、定位图案带弧，或中心放了图标
-    // —— 图标是 50 个自写路径，曲线边缘同样需要削掉灰边才稳定。
+    // 触发条件：码点带弧、定位图案带弧，或整体是异形轮廓（曲线边缘同理）。
     var needBin = !cfg.gradOn && (cfg.dotStyle === 'dot' || cfg.dotStyle === 'liquid'
-                   || cfg.eyeStyle !== 'square' || !!cfg.logoIcon);
+                   || cfg.eyeStyle !== 'square' || shapeKey !== 'square');
     if (needBin) {
-      var imgData = c2d.getImageData(0, 0, drawSize, drawSize);
+      var imgData = c2d.getImageData(0, 0, canvasSize, canvasSize);
       var px = imgData.data;
       // 跳过区只对「上传的位图」保留 —— 位图有上千种颜色，二值化会把照片压成
-      // 非黑即白的花斑。内置图标是前景/背景两色，本该二值化（削掉弧线灰边），
-      // 所以不再跳过。
+      // 非黑即白的花斑。
       var logoBox = null;
       if (cfg.logoImg) {
-        var lsz = logosize, lxx = (drawSize - lsz) / 2, lyy = (drawSize - lsz) / 2;
+        var lsz = logosize, lxx = (canvasSize - lsz) / 2, lyy = (canvasSize - lsz) / 2;
         var lpad = Math.max(3, lsz * 0.10) + 2;
         logoBox = { x0: lxx - lpad, y0: lyy - lpad, x1: lxx + lsz + lpad, y1: lyy + lsz + lpad };
       }
       var bgLum = relLum(cfg.bg);
       var midLum = bgLum > 0.5 ? bgLum - 0.35 : bgLum + 0.35;   // 阈值偏向背景一侧
-      for (var yy = 0; yy < drawSize; yy++) {
+      for (var yy = 0; yy < canvasSize; yy++) {
         if (logoBox && yy >= logoBox.y0 && yy <= logoBox.y1) continue;
-        for (var xx = 0; xx < drawSize; xx++) {
+        for (var xx = 0; xx < canvasSize; xx++) {
           if (logoBox && xx >= logoBox.x0 && xx <= logoBox.x1) continue;
-          var idx = (yy * drawSize + xx) * 4;
+          var idx = (yy * canvasSize + xx) * 4;
+          // 形状以外的像素是全透明的，必须原样跳过 ——
+          // 否则 RGB 全是 0 会被当成黑色填进去，透明区域会糊成一片黑。
+          if (px[idx + 3] === 0) continue;
           var lum = (0.2126 * px[idx] + 0.7152 * px[idx + 1] + 0.0722 * px[idx + 2]) / 255;
           var v = lum < midLum ? 0 : 255;
           px[idx] = px[idx + 1] = px[idx + 2] = v;
@@ -325,7 +367,14 @@
       c2d.putImageData(imgData, 0, 0);
     }
 
-    return { size: qr.size, drawSize: drawSize, total: total, cell: cell };
+    return {
+      size: qr.size,
+      drawSize: drawSize,        // 码区边长（含静默边距）
+      canvasSize: canvasSize,    // 最终画布边长（异形时 > drawSize）
+      shape: shapeKey,
+      total: total,
+      cell: cell
+    };
   }
 
   // 上一次渲染是否成功。导出动作必须看这个标志 ——
@@ -372,16 +421,29 @@
     lastRenderOk = true;
 
     $('versionInfo').textContent = '版本 ' + info.size + '×' + info.size;
-    // 中心有 Logo/图标时渲染强制用 H，文案跟着实际值走，不显示用户选的旧值
-    $('sizeInfo').textContent = '纠错 ' + effEc(state) + ' · ' + info.drawSize + 'px';
+    // 中心有 Logo 时渲染强制用 H，文案跟着实际值走，不显示用户选的旧值。
+    // 异形时画布比码区大，这里报的是最终画布尺寸（也就是用户会拿到的图）。
+    $('sizeInfo').textContent = '纠错 ' + effEc(state) + ' · ' + info.canvasSize + 'px';
     updateContrastWarn();
     // 目标尺寸与取整后实际像素不一致时，在按钮上标个小提示
     if ($('sizes')) {
       document.querySelectorAll('#sizes .sz').forEach(function (b) {
         var want = parseInt(b.dataset.v, 10);
-        var real = info.cell * info.total;
-        b.classList.toggle('adjusted', real !== want);
-        b.title = real !== want ? ('导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）') : '';
+        var real = info.canvasSize;
+        // 异形时画幅精确等于目标值，但码区会内缩 —— 这也是「和目标不一致」，
+        // 不标出来用户会以为形状偷偷改了他的尺寸。
+        var isShape = info.shape !== 'square';
+        var off = isShape ? (info.drawSize !== want) : (real !== want);
+        var why = '';
+        if (off) {
+          why = isShape
+            ? '画幅 ' + real + '×' + real + 'px，其中码区 ' + info.drawSize
+              + '×' + info.drawSize + 'px（' + window.FrameShapes.name(info.shape)
+              + ' 在码区外围生长）'
+            : '导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）';
+        }
+        b.classList.toggle('adjusted', off);
+        b.title = why;
       });
     }
   }
@@ -635,7 +697,7 @@
     var box = $('ecLevel');
     box.querySelectorAll('button').forEach(function (b) {
       b.addEventListener('click', function () {
-        if ((state.logoImg || state.logoIcon) && b.dataset.v !== 'H') {
+        if (state.logoImg && b.dataset.v !== 'H') {
           toast('中心放了图标 / Logo，纠错等级需保持 H 才能稳定扫出');
           syncSegUI('ecLevel', state.ecLevel);
           return;
@@ -649,6 +711,32 @@
   })();
   bindSeg('gradDir', 'gradDir');
   bindSeg('eyeStyle', 'eyeStyle');
+
+  // ---------- 事件：整体轮廓形状 ----------
+  // 网格由 FrameShapes 的几何直接生成缩略图 —— 缩略图画的就是导出时会用的
+  // 同一条 path，不存在「缩略图是心形、导出是别的形」。
+  function buildShapeGrid() {
+    var box = $('frameShape');
+    if (!box || !window.FrameShapes) return;
+    box.innerHTML = '';
+    window.FrameShapes.list.forEach(function (it) {
+      var b = document.createElement('button');
+      b.className = 'shape-cell';
+      b.dataset.v = it.k;
+      b.type = 'button';
+      // 缩略图：单位 path 直接 scale 到 26px，和导出共用同一份几何
+      b.innerHTML = '<svg width="26" height="26" viewBox="0 0 1 1" aria-hidden="true">'
+        + '<path d="' + window.FrameShapes.unitPath(it.k) + '"/></svg>'
+        + '<span>' + it.n + '</span>';
+      b.addEventListener('click', function () {
+        state.frameShape = it.k;
+        syncStyleUI();
+        render();
+      });
+      box.appendChild(b);
+    });
+  }
+  buildShapeGrid();
 
   // ---------- 美化模板 ----------
   // 每套模板 = 一份完整「外观」快照：配色（纯色或渐变）+ 码点形状 + 定位图案形状。
@@ -704,6 +792,26 @@
       b.classList.toggle('active', b.dataset.v === val);
     });
   }
+  // 轮廓形状的选中态 + 说明文案。
+  // 说明里如实写出「画布会放大到多少」—— 用户点了心形发现导出尺寸变了，
+  // 不解释就是 bug，解释了就是设计。
+  function syncShapeUI() {
+    var box = $('frameShape');
+    if (!box) return;
+    var key = shapeKeyOf(state);
+    box.querySelectorAll('.shape-cell').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.v === key);
+    });
+    var note = $('shapeNote');
+    if (!note) return;
+    if (key === 'square') {
+      note.innerHTML = '当前为常规方形。切换其它形状后，<b>图案只在码区外围生长，码区本身一个模块都不会被裁掉</b>，扫码效果与方码完全一致。';
+    } else {
+      note.innerHTML = '形状在外、码区完整内切：画幅仍按你选的尺寸输出（如 600×600），'
+        + '<b>码区相应内缩并居中</b>，四周为透明底，可直接贴到任意背景上。';
+    }
+  }
+
   function syncStyleUI() {
     syncSwatchUI('fgSwatches', 'fgColor', state.fg);
     syncSwatchUI('bgSwatches', 'bgColor', state.bg);
@@ -712,6 +820,7 @@
     syncSegUI('ecLevel', state.ecLevel);
     syncSegUI('gradDir', state.gradDir);
     syncSegUI('eyeStyle', state.eyeStyle);
+    syncShapeUI();
     $('gradOn').checked = state.gradOn;
     $('gradRow').classList.toggle('on', state.gradOn);
     $('fgLabel').textContent = state.gradOn ? '前景色（被渐变覆盖）' : '前景色';
@@ -887,10 +996,7 @@
     }
   }
   function updateLogoUI() {
-    if (state.logoIcon && window.IconLib) {
-      var ic = window.IconLib.byKey(state.logoIcon);
-      $('logoDrop').textContent = '已使用图标：' + (ic ? ic.n : state.logoIcon);
-    } else if (state.logoImg) {
+    if (state.logoImg) {
       // 上传时已写入文件名，这里不覆盖
     } else {
       $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
@@ -906,8 +1012,6 @@
       var img = new Image();
       img.onload = function () {
         state.logoImg = img;
-        state.logoIcon = null;          // 上传图片 → 清掉图标选中
-        clearIconSel();
         lockEcToH();
         $('logoDrop').textContent = '已载入：' + file.name + ' · 纠错已切换到 H';
         render();
@@ -921,81 +1025,6 @@
     $('logoInput').value = '';
     updateLogoUI();
     render();
-  });
-
-  // ---------- 事件：内置图标库 ----------
-  function clearIconSel() {
-    document.querySelectorAll('#iconGrid .icon-cell').forEach(function (c) { c.classList.remove('sel'); });
-  }
-
-  function buildIconGrid(filter) {
-    var grid = $('iconGrid');
-    if (!grid || !window.IconLib) return;
-    grid.innerHTML = '';
-    window.IconLib.list.forEach(function (ic) {
-      if (filter && filter !== '__all' && ic.c !== filter) return;
-      var cell = document.createElement('div');
-      cell.className = 'icon-cell' + (state.logoIcon === ic.k ? ' sel' : '');
-      cell.dataset.k = ic.k;
-      cell.title = ic.n + ' · ' + ic.c;
-      // 图标预览用内联 SVG，颜色跟随 currentColor（便于 hover/选中变色）
-      cell.innerHTML = '<svg viewBox="0 0 24 24">'
-        + ic.d.map(function (d) { return '<path d="' + d + '"/>'; }).join('')
-        + '</svg>';
-      cell.addEventListener('click', function () {
-        // 再次点击已选中的图标 = 取消选择
-        if (state.logoIcon === ic.k) {
-          state.logoIcon = null;
-          clearIconSel();
-          updateLogoUI();
-          render();
-          toast('已移除图标');
-          return;
-        }
-        state.logoIcon = ic.k;
-        state.logoImg = null;           // 选图标 → 清掉上传图片
-        $('logoInput').value = '';
-        lockEcToH();                    // 中心被盖住 ≈26%，纠错必须拉到 H
-        clearIconSel();
-        cell.classList.add('sel');
-        updateLogoUI();
-        render();
-        toast('已使用图标「' + ic.n + '」· 纠错已切换到 H');
-      });
-      grid.appendChild(cell);
-    });
-  }
-
-  function buildIconFilter() {
-    var bar = $('iconFilter');
-    if (!bar || !window.IconLib) return;
-    var items = [{ k: '__all', n: '全部' }].concat(
-      window.IconLib.groups.map(function (g) { return { k: g, n: g }; })
-    );
-    items.forEach(function (it, i) {
-      var b = document.createElement('button');
-      b.textContent = it.n;
-      b.dataset.k = it.k;
-      if (i === 0) b.classList.add('active');
-      b.addEventListener('click', function () {
-        bar.querySelectorAll('button').forEach(function (x) { x.classList.remove('active'); });
-        b.classList.add('active');
-        buildIconGrid(it.k);
-      });
-      bar.appendChild(b);
-    });
-  }
-
-  buildIconFilter();
-  buildIconGrid('__all');
-
-  $('clearIcon').addEventListener('click', function () {
-    if (!state.logoIcon) return toast('当前没有使用图标');
-    state.logoIcon = null;
-    clearIconSel();
-    updateLogoUI();
-    render();
-    toast('已移除图标');
   });
 
   // ---------- 下载 ----------
@@ -1044,15 +1073,15 @@
   $('resetAll').addEventListener('click', function () {
     state.fg = '#0a0c12'; state.bg = '#ffffff';
     state.dotStyle = 'square'; state.ecLevel = 'M'; state.margin = 4;
-    state.logoImg = null; state.logoIcon = null;
+    state.logoImg = null;
     state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
     state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#1d4ed8';
+    state.frameShape = 'square';
     state.exportSize = 600;
     // UI 同步交给 syncStyleUI（与模板套用共用同一份逻辑，不会各改各的）
     syncStyleUI();
     $('margin').value = 4; $('marginVal').textContent = '4';
     $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
-    clearIconSel();
     // 清空所有内容输入
     ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
@@ -1138,13 +1167,11 @@
   // 样式描述，显示在统计条里，让用户明确知道会用什么样式
   function styleLabel() {
     var shape = { square: '直角', dot: '圆角', liquid: '液态' }[state.dotStyle] || '直角';
-    var hasLogo = !!(state.logoImg || state.logoIcon);
-    var s = shape + ' · 纠错' + (hasLogo ? 'H' : state.ecLevel);
+    var s = shape + ' · 纠错' + (state.logoImg ? 'H' : state.ecLevel);
     if (state.gradOn) s += ' · 渐变';
     if (state.logoImg) s += ' · Logo';
-    if (state.logoIcon) {
-      var ic = window.IconLib && window.IconLib.byKey(state.logoIcon);
-      s += ' · ' + (ic ? ic.n : '图标');
+    if (state.frameShape !== 'square') {
+      s += ' · ' + (window.FrameShapes && window.FrameShapes.name(state.frameShape) || state.frameShape);
     }
     return s;
   }
@@ -1156,7 +1183,7 @@
     $('bsStyle').textContent = styleLabel();
 
     // 预估：最大内容决定版本号；顺便提示哪些行内容过长会被跳过
-    var effEcLvl = (state.logoImg || state.logoIcon) ? 'H' : state.ecLevel;
+    var effEcLvl = state.logoImg ? 'H' : state.ecLevel;
     var tooLong = [];
     for (var i = 0; i < items.length; i++) {
       var probe = window.QRCore.probe
@@ -1185,7 +1212,7 @@
     return {
       fg: state.fg, bg: state.bg, dotStyle: state.dotStyle,
       ecLevel: state.ecLevel, margin: state.margin, logoImg: state.logoImg,
-      logoIcon: state.logoIcon,
+      frameShape: state.frameShape,
       gradOn: state.gradOn, gradA: state.gradA, gradB: state.gradB, gradDir: state.gradDir,
       eyeStyle: state.eyeStyle, eyeOn: state.eyeOn, eyeColor: state.eyeColor,
       exportSize: state.exportSize
@@ -1212,27 +1239,55 @@
     catch (e) { return null; }
 
     var count = qr.size, margin = cfg.margin, total = count + margin * 2;
+    var shapeKey = shapeKeyOf(cfg);
+    var ratio = shapeRatio(cfg);
+
+    // 布局与 Canvas 侧同源（solveLayout），只是把像素除以 cell 换回模块单位 ——
+    // 这样导出的矢量画幅和预览的像素画幅严格是同一个数，不会各算各的。
+    var L = solveLayout(total, cfg.exportSize || 600, shapeKey, ratio);
+    var outer = Math.round(L.canvasSize / L.cell * 1e4) / 1e4;   // 画幅（模块单位）
+    var pad = (outer - total) / 2;         // 码区在画幅里的居中偏移
+
     var defs = '', fillRef = cfg.fg;
     var gid = 'qg' + Math.random().toString(36).slice(2, 8);
 
     if (cfg.gradOn) {
       fillRef = 'url(#' + gid + ')';
-      var x1 = '0%', y1 = '0%', x2 = '100%', y2 = '100%';
-      if (cfg.gradDir === 'h') { x2 = '100%'; y2 = '0%'; }
-      else if (cfg.gradDir === 'v') { x2 = '0%'; y2 = '100%'; }
-      defs = '<defs><linearGradient id="' + gid + '" x1="' + x1 + '" y1="' + y1
-        + '" x2="' + x2 + '" y2="' + y2 + '">'
-        + '<stop offset="0%" stop-color="' + cfg.gradA + '"/>'
-        + '<stop offset="100%" stop-color="' + cfg.gradB + '"/></linearGradient></defs>';
+      // 【本次修复】原先是默认 objectBoundingBox + 百分比：
+      // 参照物是「每个 <rect> 自己的包围盒」，于是 40×40 个模块各自从 A 渐变到 B，
+      // 导出的 SVG 是一块块重复的花斑，而 Canvas 预览是一整道渐变 —— 两边不一致。
+      // 改成 userSpaceOnUse，坐标锚在码区上（和 Canvas 的 createLinearGradient 同参）。
+      var gx0 = 0, gy0 = 0, gx1 = total, gy1 = total;
+      if (cfg.gradDir === 'h') { gx1 = total; gy1 = 0; }
+      else if (cfg.gradDir === 'v') { gx1 = 0; gy1 = total; }
+      defs = '<defs><linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse"'
+        + ' x1="' + gx0 + '" y1="' + gy0 + '" x2="' + gx1 + '" y2="' + gy1 + '">'
+        + '<stop offset="0" stop-color="' + cfg.gradA + '"/>'
+        + '<stop offset="1" stop-color="' + cfg.gradB + '"/></linearGradient></defs>';
     }
     var eyeFill = (cfg.eyeOn && contrast(cfg.eyeColor, cfg.bg) >= 3) ? cfg.eyeColor : fillRef;
 
+    // 异形时形状带曲线，crispEdges 会把曲线渲染成锯齿，改用几何精度。
+    var rendering = shapeKey === 'square' ? 'crispEdges' : 'geometricPrecision';
+
     var out = ['<?xml version="1.0" encoding="UTF-8"?>',
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + outer + ' ' + outer
       + '" width="' + cfg.exportSize + '" height="' + cfg.exportSize
-      + '" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">',
-      defs,
-      '<rect width="' + total + '" height="' + total + '" fill="' + cfg.bg + '"/>'];
+      + '" preserveAspectRatio="xMidYMid meet" shape-rendering="' + rendering + '">',
+      defs];
+
+    // 背景：方形填满；异形只填形状内部，形状以外保持透明
+    // （导出后可以直接贴到海报 / 名片上，不会带一块白底）。
+    if (shapeKey === 'square') {
+      out.push('<rect width="' + outer + '" height="' + outer + '" fill="' + cfg.bg + '"/>');
+    } else {
+      out.push('<path d="' + window.FrameShapes.unitPath(shapeKey)
+        + '" transform="scale(' + outer + ')" fill="' + cfg.bg + '"/>');
+    }
+
+    // 以下所有码点 / 定位图案都在码区局部坐标系里，
+    // 平移 pad 之后正好落在形状正中。
+    if (pad) out.push('<g transform="translate(' + pad + ' ' + pad + ')">');
 
     var eyeMap = {};
     function mk(r0, c0) {
@@ -1275,31 +1330,9 @@
     // eyeSvgMarkup()，Canvas 与 SVG 共用 ShapeMath 的同一份几何。
     out.push(eyeSvgMarkup(cfg.eyeStyle, count, margin, eyeFill));
 
-    // 中心 Logo：上传图片 或 内置图标（与画布 drawIcon 逻辑对应）。
-    // 矢量导出本来就不放用户的位图（那会变成嵌 base64 的大文件），
-    // 但内置图标是纯矢量，可以真放进 SVG 里，导出后依然清晰可缩放。
-    if (cfg.logoIcon && window.IconLib) {
-      out.push(iconSvgMarkup(cfg.logoIcon, total, fillRef, cfg.bg));
-    }
-
+    if (pad) out.push('</g>');
     out.push('</svg>');
     return out.join('');
-  }
-
-  // 中心图标的 SVG 片段。坐标单位是「模块」，与画布 0.22 码宽的占比保持一致。
-  // 衬底用前景色（或渐变 fillRef），图标用背景色镂空 —— 与画布 drawIcon 一致。
-  function iconSvgMarkup(key, total, plateFill, cutFill) {
-    var ls = total * 0.22;              // 与画布 drawSize * 0.22 对应
-    var pad = ls * 0.10;
-    var lx = (total - ls) / 2, ly = (total - ls) / 2;
-    // 衬底：前景色圆角 plate
-    var r = pad * 1.2;
-    var boxX = lx - pad, boxY = ly - pad, boxW = ls + pad * 2;
-    var backing = '<path d="' + rectPath(boxX, boxY, boxW, boxW, r) + '" fill="' + plateFill + '"/>';
-    // 图标本体占内接方形的 78%
-    var icoBox = ls * 0.78;
-    var icoX = lx + (ls - icoBox) / 2, icoY = ly + (ls - icoBox) / 2;
-    return backing + window.IconLib.iconSvg(key, icoX, icoY, icoBox, cutFill);
   }
 
   // 圆角矩形路径（画布 side 用，单位为模块）
@@ -1718,6 +1751,17 @@
     render();
     toast('已载入编辑器，可继续编辑');
   });
+
+  // ---------- 自动化测试钩子 ----------
+  // 整个 app.js 是个 IIFE，不对外暴露任何东西。好处是不会污染全局，
+  // 坏处是回归测试只能截图看「看起来对不对」，验证不了 SVG 里真正的坐标
+  // （而 SVG 导出恰恰是最容易悄悄画错的一条路径：渐变参照、画幅、偏移）。
+  // 这里只开两个只读出口：返回的是字符串 / 数字，外部拿不到 state 引用，改不动内部状态。
+  window.QRStudioTest = {
+    buildSvg: function () { return buildSvg(getContent(), state); },
+    renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); },
+    shapeKey: function () { return shapeKeyOf(state); }
+  };
 
   // ---------- 初始化 ----------
   render();

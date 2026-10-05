@@ -340,6 +340,37 @@
   }
   .seg button:active { transform: scale(.97); }
 
+  /* ================= 整体轮廓形状 ================= */
+  /* 9 个形状用带缩略图的网格，比一排文字按钮直观得多 ——
+     用户一眼就能看到「整张码会变成什么样」。 */
+  .shape-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .shape-cell {
+    border: none; background: rgba(6, 9, 16, 0.55); cursor: pointer;
+    border-radius: 11px; padding: 9px 5px 7px; font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: var(--ink-3); font-size: 11.5px; font-weight: 550;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 3px rgba(0,0,0,.3) inset;
+    transition: color .18s var(--ease-out), background .18s var(--ease-out),
+                box-shadow .18s var(--ease-out), transform .15s var(--ease-out);
+  }
+  .shape-cell:hover { color: var(--ink); background: rgba(255,255,255,.045); }
+  .shape-cell:active { transform: scale(.96); }
+  .shape-cell svg { display: block; }
+  .shape-cell svg path { fill: var(--ink-3); transition: fill .18s var(--ease-out); }
+  .shape-cell:hover svg path { fill: var(--ink-2); }
+  .shape-cell.active {
+    background: linear-gradient(180deg, rgba(91,140,255,.30), rgba(120,110,255,.15));
+    color: #fff;
+    box-shadow: 0 1px 0 rgba(255,255,255,.13) inset, 0 0 0 1px rgba(120,150,255,.30), 0 6px 16px -9px var(--glow);
+  }
+  .shape-cell.active svg path { fill: #fff; }
+  /* 形状留白说明：异形时画布会变大，这里如实告知，避免用户以为被坑了尺寸 */
+  .shape-note {
+    font-size: 11.5px; color: var(--ink-4); line-height: 1.6; margin-top: 11px;
+  }
+  .shape-note b { color: var(--ink-2); font-weight: 600; }
+
   /* ================= 颜色 ================= */
   .swatches { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
   .sw {
@@ -842,38 +873,6 @@
   }
   .tpl.sel .tpl-name { color: var(--ink); }
 
-  /* ================= 内置图标库 ================= */
-  .icon-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
-  .icon-filter button {
-    appearance: none; border: 0; cursor: pointer; font: inherit;
-    font-size: 11.5px; font-weight: 600; color: var(--ink-3);
-    padding: 4px 10px; border-radius: 999px; background: var(--surface-3);
-    transition: color .18s var(--ease-out), background .18s var(--ease-out);
-  }
-  .icon-filter button:hover { color: var(--ink); }
-  .icon-filter button.active {
-    color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 3px 12px -5px var(--glow);
-  }
-  .icon-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
-    gap: 7px; max-height: 208px; overflow-y: auto; padding: 2px;
-  }
-  .icon-cell {
-    aspect-ratio: 1; border-radius: 9px; cursor: pointer;
-    display: grid; place-items: center;
-    background: var(--surface-2); color: var(--ink-2);
-    box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
-    transition: transform .16s var(--ease-out), background .16s var(--ease-out), color .16s var(--ease-out);
-  }
-  .icon-cell:hover { transform: translateY(-2px); background: var(--surface-3); color: var(--ink); }
-  .icon-cell.sel {
-    color: #fff; background: rgba(91,140,255,.22);
-    box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 3.5px var(--accent), 0 0 14px -2px var(--glow);
-  }
-  .icon-cell svg { width: 21px; height: 21px; display: block; }
-  .icon-cell svg path { fill: currentColor; }
-
   /* ================= 响应式 ================= */
   @media (max-width: 960px) {
     .preview-wrap { position: static; }
@@ -1122,6 +1121,16 @@
           </div>
         </div>
 
+        <!-- 组：整体轮廓 -->
+        <div class="group">
+          <div class="group-label">整体轮廓</div>
+          <div class="field">
+            <label>二维码外形</label>
+            <div class="shape-grid" id="frameShape"></div>
+            <div class="shape-note" id="shapeNote"></div>
+          </div>
+        </div>
+
         <!-- 组：码型 -->
         <div class="group">
           <div class="group-label">码型</div>
@@ -1210,12 +1219,6 @@
             <div style="margin-top:10px"><button class="btn mini" id="clearLogo">移除 Logo</button></div>
           </div>
 
-          <div class="field" style="margin-top:18px">
-            <label>或选一个内置图标 <span style="color:var(--ink-4);font-weight:400">（与上方图片二选一）</span></label>
-            <div class="icon-filter" id="iconFilter"></div>
-            <div class="icon-grid" id="iconGrid"></div>
-            <div style="margin-top:10px"><button class="btn mini" id="clearIcon">移除图标</button></div>
-          </div>
         </div>
       </div>
     </div>
@@ -1395,7 +1398,7 @@ https://example.com/3,产品三
 <script src="jsqr.js"></script>
 <script src="zip.js"></script>
 <script src="shape_math.js"></script>
-<script src="icons.js"></script>
+<script src="frame_shapes.js"></script>
 <script src="app.js"></script>
 <script>
 /* 视觉增强脚本：不改变任何 app.js 逻辑，仅追加动效与滑杆填充 */
