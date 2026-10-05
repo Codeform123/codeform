@@ -28,7 +28,13 @@
   var ctx = canvas.getContext('2d');
 
   // ---------- 生成二维码内容字符串 ----------
+  // formError：表单填了内容但格式不合法时的提示（空字符串表示一切正常）。
+  // 之前 geo / 电话 / 邮箱 三类完全不校验，"abc,def" 也能生成一张码，
+  // 扫出来是 "geo:abc,def" 这种没意义的内容 —— 用户要等到扫开才发现白做。
+  var formError = '';
+
   function getContent() {
+    formError = '';
     switch (state.type) {
       case 'text':
         return $('inputText').value || '';
@@ -48,10 +54,13 @@
       case 'vcard': {
         var name = $('vcName').value || '';
         if (!name) return '';
-        var lines = ['BEGIN:VCARD', 'VERSION:3.0', 'N:' + name, 'FN:' + name];
-        if ($('vcOrg').value) lines.push('ORG:' + $('vcOrg').value);
-        if ($('vcTel').value) lines.push('TEL:' + $('vcTel').value);
-        if ($('vcMail').value) lines.push('EMAIL:' + $('vcMail').value);
+        // vCard 3.0（RFC 2426）里 \ ; , 和换行都是结构化分隔符，
+        // 出现在值里必须转义，否则 "市场;部" 会被解析成两个字段、
+        // "李,四" 会被切成姓和名 —— 扫进通讯录就是错的。
+        var lines = ['BEGIN:VCARD', 'VERSION:3.0', 'N:' + vesc(name), 'FN:' + vesc(name)];
+        if ($('vcOrg').value) lines.push('ORG:' + vesc($('vcOrg').value));
+        if ($('vcTel').value) lines.push('TEL:' + vesc($('vcTel').value));
+        if ($('vcMail').value) lines.push('EMAIL:' + vesc($('vcMail').value));
         lines.push('END:VCARD');
         return lines.join('\n');
       }
@@ -63,11 +72,22 @@
       }
       case 'tel': {
         var tNum = ($('telNum').value || '').trim();
-        return tNum ? 'tel:' + tNum : '';
+        if (!tNum) return '';
+        // 电话号码允许数字、空格、+、-、()、以及分机号常用的 x
+        if (!/^[\d+\-()\s]+$/.test(tNum)) {
+          formError = '电话号码只能包含数字、空格和 + - ( )';
+          return '';
+        }
+        return 'tel:' + tNum;
       }
       case 'mail': {
         var mTo = ($('mailTo').value || '').trim();
         if (!mTo) return '';
+        // 邮箱必须有 @，且 @ 两侧都要有字符（"@a.com" / "a@" 都不算）
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mTo)) {
+          formError = '邮箱地址不完整，形如 name@example.com';
+          return '';
+        }
         var mParams = [];
         if ($('mailSubj').value) mParams.push('subject=' + encodeURIComponent($('mailSubj').value));
         if ($('mailBody').value) mParams.push('body=' + encodeURIComponent($('mailBody').value));
@@ -76,12 +96,27 @@
       case 'geo': {
         var gLat = ($('geoLat').value || '').trim();
         var gLng = ($('geoLng').value || '').trim();
-        return (gLat && gLng) ? 'geo:' + gLat + ',' + gLng : '';
+        if (!gLat || !gLng) return '';
+        // 经纬度必须是数字（纬度 -90~90，经度 -180~180）
+        var la = parseFloat(gLat), ln = parseFloat(gLng);
+        if (!isFinite(la) || !isFinite(ln) || Math.abs(la) > 90 || Math.abs(ln) > 180) {
+          formError = '经纬度不合法：纬度 -90~90，经度 -180~180';
+          return '';
+        }
+        return 'geo:' + la + ',' + ln;
       }
       default: return '';
     }
   }
   function esc(s) { return String(s).replace(/([\\;,:"])/g, '\\$1'); }
+  // vCard 值转义：反斜杠自身 → 分号 → 逗号 → 换行（顺序不能反）
+  function vesc(s) {
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
 
   // ---------- 对比度检测（保证导出的码真的能扫） ----------
   function relLum(hex) {
@@ -293,18 +328,30 @@
     return { size: qr.size, drawSize: drawSize, total: total, cell: cell };
   }
 
+  // 上一次渲染是否成功。导出动作必须看这个标志 ——
+  // 否则内容超容量时画布上画的是「内容过长」的错误提示图，
+  // 用户点下载会拿到一张印着错误文字的 PNG，还以为导出成功了。
+  var lastRenderOk = true;
+
+  // 画布上画一条居中的提示文字（空内容 / 内容过长 / 格式不对 复用同一套排版）
+  function drawPlaceholder(text, color) {
+    ctx.fillStyle = '#0a0c12';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = color;
+    ctx.font = '500 28px -apple-system, "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  }
+
   function render() {
     var content = getContent();
 
     // 空内容占位
     if (!content) {
-      ctx.fillStyle = '#0a0c12';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(154,167,194,.55)';
-      ctx.font = '500 30px -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('请输入内容生成二维码', canvas.width / 2, canvas.height / 2);
+      lastRenderOk = false;
+      drawPlaceholder(formError || '请输入内容生成二维码',
+                      formError ? '#f87171' : 'rgba(154,167,194,.55)');
       $('versionInfo').textContent = '版本 —';
       $('sizeInfo').textContent = '—';
       updateContrastWarn();
@@ -314,15 +361,15 @@
     var info = renderTo(canvas, content, state);
 
     if (!info) {
-      ctx.fillStyle = '#0a0c12';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#f87171';
-      ctx.font = '500 28px -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('内容过长，请缩短或降低纠错等级', canvas.width / 2, canvas.height / 2);
+      lastRenderOk = false;
+      drawPlaceholder('内容过长，请缩短或降低纠错等级', '#f87171');
+      // 旧值会误导用户（看起来像是刚生成成功），这里一并清掉
+      $('versionInfo').textContent = '版本 —';
+      $('sizeInfo').textContent = '—';
       return;
     }
+
+    lastRenderOk = true;
 
     $('versionInfo').textContent = '版本 ' + info.size + '×' + info.size;
     // 中心有 Logo/图标时渲染强制用 H，文案跟着实际值走，不显示用户选的旧值
@@ -952,8 +999,16 @@
   });
 
   // ---------- 下载 ----------
+  // 导出前的统一前置检查：既要有内容，也要保证上一次渲染真的成功了。
+  // 少了第二项，内容超容量时导出的就是一张印着「内容过长」的错误图。
+  function canExport() {
+    if (!getContent()) { toast(formError || '请先输入内容'); return false; }
+    if (!lastRenderOk) { toast('内容过长，无法导出，请缩短内容或降低纠错等级'); return false; }
+    return true;
+  }
+
   $('downloadPng').addEventListener('click', function () {
-    if (!getContent()) return toast('请先输入内容');
+    if (!canExport()) return;
     var link = document.createElement('a');
     link.download = 'codeform-' + canvas.width + '-' + Date.now() + '.png';
     link.href = canvas.toDataURL('image/png');
@@ -966,21 +1021,18 @@
     // 原先这里有第三份独立的 SVG 生成代码（和 buildSvg 逻辑重复），
     // 结果是任何样式改动都得改三处，漏一处就出现「预览变了、导出没变」。
     // 收敛成一条路径后，这种漂移从结构上不可能再发生。
-    var content = getContent();
-    if (!content) return toast('请先输入内容');
-    var svg = buildSvg(content, state);
+    if (!canExport()) return;
+    var svg = buildSvg(getContent(), state);
     if (!svg) return toast('内容过长');
-    var blob = new Blob([svg], { type: 'image/svg+xml' });
-    var link = document.createElement('a');
-    link.download = 'codeform-' + Date.now() + '.svg';
-    link.href = URL.createObjectURL(blob);
-    link.click();
-    URL.revokeObjectURL(link.href);
+    // 用 downloadBlob 走统一的生命周期：延迟 4 秒再 revoke。
+    // 之前这里是 click() 之后立刻 revokeObjectURL，Firefox 上下载会直接失败。
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }),
+                 'codeform-' + Date.now() + '.svg');
     toast('已下载 SVG（矢量）');
   });
 
   $('copyImage').addEventListener('click', function () {
-    if (!getContent()) return toast('请先输入内容');
+    if (!canExport()) return;
     if (!navigator.clipboard || !window.ClipboardItem) return toast('浏览器不支持，请用下载');
     canvas.toBlob(function (blob) {
       navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
