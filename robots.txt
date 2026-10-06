@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
+# 站点地图
 Sitemap: https://mafangqr.com/sitemap.xml

@@ -1555,6 +1555,21 @@
     renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); }
   };
 
+  // ---------- 常见问题折叠 ----------
+  // 用按钮 + aria-expanded 而不是 <details>：details 的展开动画在部分浏览器里
+  // 无法平滑过渡，且默认三角图标不易统一视觉。这里手写一套，语义仍是无障碍的。
+  (function initFaq() {
+    var list = $('faqList');
+    if (!list) return;
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest('.faq-q');
+      if (!btn || !list.contains(btn)) return;
+      var item = btn.parentNode;
+      var on = item.classList.toggle('on');
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+  })();
+
   // ---------- 初始化 ----------
   render();
 })();

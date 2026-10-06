@@ -44,18 +44,28 @@
 <link rel="icon" type="image/png" sizes="16x16" href="brand/favicon-16.png">
 <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
 <meta name="theme-color" content="#0a0c12">
+<!-- Open Graph / 社交分享卡片
+     用图是专门生成的 1200x630 横图（1.91:1）。
+     注意：不能用宽高比 3.2:1 的 logo-dark.png —— summary_large_image
+     会按 1.91:1 裁切，窄条 logo 会被切掉两侧或上下留大片空白。 -->
 <meta property="og:title" content="码方二维码 Codeform — 免费在线二维码生成器">
-<meta property="og:description" content="纯本地生成、实时预览、无广告的二维码美化工具">
-<meta property="og:image" content="https://mafangqr.com/brand/logo-dark.png">
+<meta property="og:description" content="纯本地生成、实时预览、无广告、无水印的二维码美化工具。支持文字、网址、WiFi、名片等 8 种内容，PNG / SVG 高清导出。">
+<meta property="og:image" content="https://mafangqr.com/brand/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="码方二维码 — 免费在线二维码生成器，纯本地生成，文件不上传">
 <meta property="og:url" content="https://mafangqr.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="码方二维码">
+<meta property="og:locale" content="zh_CN">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="码方二维码 Codeform — 免费在线二维码生成器">
-<meta name="twitter:description" content="纯本地生成、实时预览、无广告的二维码美化工具">
-<meta name="twitter:image" content="https://mafangqr.com/brand/logo-dark.png">
+<meta name="twitter:description" content="纯本地生成、实时预览、无广告、无水印的二维码美化工具。">
+<meta name="twitter:image" content="https://mafangqr.com/brand/og-cover.png">
+<meta name="twitter:image:alt" content="码方二维码 — 免费在线二维码生成器">
 <link rel="canonical" href="https://mafangqr.com/">
-<meta name="keywords" content="二维码生成器,免费二维码,在线二维码,二维码制作,二维码美化,带logo二维码,WiFi二维码,名片二维码">
+<meta name="keywords" content="二维码生成器,免费二维码,在线二维码,二维码制作,二维码美化,带logo二维码,WiFi二维码,名片二维码,vCard二维码,批量二维码,二维码导出svg">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -65,18 +75,100 @@
   "description": "免费在线二维码生成器，纯本地生成：实时预览、自由美化、Logo 嵌入，文件不上传，隐私零泄露。",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "All",
+  "browserRequirements": "需要支持 Canvas 的现代浏览器（Chrome / Edge / Firefox / Safari）",
+  "inLanguage": "zh-CN",
+  "isAccessibleForFree": true,
   "offers": {
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "CNY"
   },
   "featureList": [
-    "文本、网址、WiFi、名片 vCard 二维码生成",
-    "前景背景自由配色",
-    "方形、圆角、圆点码点样式",
-    "中心 Logo 嵌入",
-    "PNG / SVG 矢量下载",
-    "纯本地处理，内容不上传"
+    "文本、网址、WiFi、名片 vCard、短信、电话、邮件、地理位置 8 种内容类型",
+    "前景背景自由配色，支持渐变填充",
+    "直角、圆角、液态三种码点样式",
+    "15 套一键套用配色模板",
+    "L / M / Q / H 四级纠错，可嵌入中心 Logo",
+    "300 / 600 / 1024 / 2048 四档导出尺寸，PNG 位图与 SVG 矢量双格式",
+    "批量生成，一键打包 ZIP 下载",
+    "内置扫码模式，可上传图片解码",
+    "纯本地处理，二维码内容不上传服务器"
+  ]
+}
+</script>
+<!-- 站点级结构化数据：让搜索结果里能出现站名与面包屑 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://mafangqr.com/#website",
+      "url": "https://mafangqr.com/",
+      "name": "码方二维码 Codeform",
+      "alternateName": "Codeform QR",
+      "description": "免费在线二维码生成器，纯本地生成，文件不上传。",
+      "inLanguage": "zh-CN",
+      "publisher": { "@id": "https://mafangqr.com/#org" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://mafangqr.com/#org",
+      "name": "码方二维码 Codeform",
+      "url": "https://mafangqr.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://mafangqr.com/brand/icon-512.png",
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://mafangqr.com/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "码方二维码收费吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "完全免费，无广告、无水印、无生成次数限制，导出的二维码可放心商用。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "生成的二维码内容会被上传吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不会。所有编码与渲染都在你的浏览器本地完成，页面不发送任何二维码内容到服务器，断网也能正常使用。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "二维码会过期吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不会。码方生成的是静态二维码，内容直接编码在图形中，不依赖任何跳转服务，不存在过期或失效问题。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "美化后会影响扫码吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "只要保持足够对比度就能正常识别。工具内置对比度检测，颜色搭配过浅时会给出提示，建议配合摄像头多角度实测。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "支持导出矢量图用于印刷吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "支持。可导出 SVG 矢量格式，放大到任意尺寸都不失真；也可导出最高 2048 像素的 PNG 位图。"
+          }
+        }
+      ]
+    }
   ]
 }
 </script>
@@ -786,6 +878,35 @@
   .feature .ico svg { width: 16px; height: 16px; }
   .feature b { color: var(--ink); font-weight: 650; display: block; margin-bottom: 1px; font-size: 13px; }
 
+  /* ================= 常见问题 =================
+     注意：这里的每条问答都必须与 head 里的 FAQPage 结构化数据逐条对应。
+     Google 明确要求结构化数据与可见内容一致，只标不写会被判为欺骗性标记。 */
+  .faq-card { margin-top: 22px; }
+  .faq-list { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+  .faq-item { border-bottom: 1px solid var(--hair); }
+  .faq-item:last-child { border-bottom: 0; }
+  .faq-q {
+    width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 15px 4px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    font-family: inherit; line-height: 1.55;
+    transition: color .18s var(--ease-out);
+  }
+  .faq-q:hover { color: var(--accent); }
+  .faq-q .chev {
+    flex-shrink: 0; width: 15px; height: 15px; color: var(--ink-3);
+    transition: transform .25s var(--ease-out), color .18s var(--ease-out);
+  }
+  .faq-item.on .faq-q .chev { transform: rotate(180deg); color: var(--accent); }
+  .faq-a {
+    overflow: hidden; max-height: 0; opacity: 0;
+    transition: max-height .3s var(--ease-out), opacity .25s var(--ease-out);
+  }
+  .faq-item.on .faq-a { max-height: 260px; opacity: 1; }
+  .faq-a p {
+    margin: 0; padding: 0 4px 16px; font-size: 13px; line-height: 1.72; color: var(--ink-2);
+  }
+
   footer {
     text-align: center; margin-top: 52px; font-size: 12.5px; color: var(--ink-3);
     padding-top: 26px; position: relative;
@@ -1302,6 +1423,46 @@ https://example.com/3,产品三
           </div>
         </div>
       </div>
+      <div class="card faq-card">
+        <h2>常见问题</h2>
+        <div class="faq-list" id="faqList">
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>码方二维码收费吗？</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a"><p>完全免费，无广告、无水印、无生成次数限制，导出的二维码可放心商用。</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>生成的二维码内容会被上传吗？</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a"><p>不会。所有编码与渲染都在你的浏览器本地完成，页面不发送任何二维码内容到服务器，断网也能正常使用。</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>二维码会过期吗？</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a"><p>不会。码方生成的是静态二维码，内容直接编码在图形中，不依赖任何跳转服务，不存在过期或失效问题。</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>美化后会影响扫码吗？</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a"><p>只要保持足够对比度就能正常识别。工具内置对比度检测，颜色搭配过浅时会给出提示，建议配合摄像头多角度实测。</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>支持导出矢量图用于印刷吗？</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a"><p>支持。可导出 SVG 矢量格式，放大到任意尺寸都不失真；也可导出最高 2048 像素的 PNG 位图。</p></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1309,7 +1470,7 @@ https://example.com/3,产品三
   <section class="hero-bottom">
     <div class="eyebrow"><span class="spark"></span>纯本地 · 无广告 · 免费</div>
     <h2>把链接，变成<span class="grad">可以被看见的设计</span></h2>
-    <p>四种内容类型、自由配色、Logo 嵌入与矢量导出。你的内容从始至终不离开浏览器 —— 干净、克制、专业。</p>
+    <p>八种内容类型、自由配色、Logo 嵌入与矢量导出。你的内容从始至终不离开浏览器 —— 干净、克制、专业。</p>
   </section>
 
   <footer>码方二维码 Codeform<span class="sep">·</span>纯本地生成，无需注册<span class="sep">|</span>内容不上传 · 完全本地处理</footer>
