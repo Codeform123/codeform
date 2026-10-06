@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>页面不存在 · 码方二维码 Codeform</title>
+<!-- 404 页不该被搜索引擎收录，否则会稀释站点质量信号 -->
+<meta name="robots" content="noindex, follow">
+<meta name="theme-color" content="#0a0c12">
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="preload" href="fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url(fonts/inter-latin-var.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                   U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                   U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  :root {
+    --bg: #0a0c12;
+    --ink: #eef2fb;
+    --ink-2: #a2aec7;
+    --ink-3: #6a7690;
+    --accent: #5b8cff;
+    --hair: rgba(255, 255, 255, 0.07);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+                 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+    display: grid; place-items: center; padding: 32px 22px;
+    -webkit-font-smoothing: antialiased;
+    position: relative; overflow-x: hidden;
+  }
+  /* 与首页同源的双色光晕背景 */
+  body::before {
+    content: ""; position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(560px 420px at 78% 8%, rgba(91,140,255,.16), transparent 70%),
+      radial-gradient(520px 420px at 12% 92%, rgba(160,107,255,.13), transparent 70%);
+  }
+  .wrap {
+    position: relative; z-index: 1; max-width: 520px; width: 100%;
+    text-align: center;
+  }
+  .code {
+    font-size: 96px; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #5b8cff 0%, #a06bff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 6px;
+  }
+  /* 用二维码意象替代普通分隔线：三个定位角 + 散点 */
+  .qr-mark {
+    width: 74px; height: 74px; margin: 4px auto 26px;
+    display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr);
+    gap: 2px; opacity: .9;
+  }
+  .qr-mark i { border-radius: 1.5px; background: transparent; }
+  .qr-mark i.on { background: rgba(91,140,255,.55); }
+
+  h1 {
+    font-size: 26px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.01em;
+  }
+  p {
+    font-size: 14.5px; line-height: 1.75; color: var(--ink-2); margin: 0 0 32px;
+  }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  a.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; transition: all .22s var(--ease-out);
+    border: 1px solid var(--hair);
+  }
+  a.primary {
+    background: linear-gradient(135deg, #5b8cff 0%, #a06bff 100%);
+    color: #fff; border-color: transparent;
+    box-shadow: 0 10px 26px -12px rgba(91,140,255,.75);
+  }
+  a.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 32px -12px rgba(91,140,255,.9); }
+  a.ghost { color: var(--ink-2); background: rgba(255,255,255,.035); }
+  a.ghost:hover { color: var(--ink); border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
+  .hint {
+    margin-top: 30px; font-size: 12.5px; color: var(--ink-3);
+  }
+  .hint code {
+    font-size: 12px; padding: 2px 7px; border-radius: 6px;
+    background: rgba(255,255,255,.06); color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="code">404</div>
+    <div class="qr-mark" id="qrMark" aria-hidden="true"></div>
+    <h1>这个页面不存在</h1>
+    <p>你访问的地址可能已失效，或者输错了。<br>不过没关系 —— 你要找的二维码工具还在。</p>
+    <div class="actions">
+      <a class="btn primary" href="/">回到二维码生成器</a>
+      <a class="btn ghost" href="/?mode=batch">批量生成</a>
+    </div>
+    <p class="hint">如果你是从 <code>mafangqr.com</code> 站内链接跳来的，<br>麻烦反馈一下，我会尽快修好。</p>
+  </div>
+
+  <script>
+    // 画一个 7x7 的二维码角标意象：三个定位角 + 随机数据点
+    (function () {
+      var g = document.getElementById('qrMark');
+      if (!g) return;
+      var inFinder = function (r, c) {
+        return (r < 3 && c < 3) || (r < 3 && c > 3) || (r > 3 && c < 3);
+      };
+      var frag = document.createDocumentFragment();
+      for (var r = 0; r < 7; r++) {
+        for (var c = 0; c < 7; c++) {
+          var i = document.createElement('i');
+          if (inFinder(r, c)) {
+            // 定位角画成「回」字：外缘一圈 + 中心实心，中间留白
+            var lr = r % 3, lc = c % 3;
+            var edge = lr === 0 || lc === 0;
+            if (lr > 0 && lc > 0) { lr -= 1; lc -= 1; }
+            if (edge) i.className = 'on';
+            else if (lr === 1 && lc === 1) i.className = 'on';
+          } else {
+            // 数据点用固定模式，避免每次刷新跳变
+            var seed = (r * 7 + c) * 2654435761 % 97;
+            if (seed % 3 === 0) i.className = 'on';
+          }
+          frag.appendChild(i);
+        }
+      }
+      g.appendChild(frag);
+    })();
+  </script>
+</body>
+</html>
