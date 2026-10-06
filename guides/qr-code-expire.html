@@ -273,6 +273,40 @@
     静态码的答案是能，动态码的答案则取决于那个时候服务器还在不在。
   </p>
 
+<!-- FAQ-AUTO-START -->
+<h2>常见问题</h2>
+<div class="g-faq" id="faqList">
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>二维码会过期吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>静态二维码不会过期，它把内容直接编码在图案里，不依赖任何服务器，理论上可以永久使用。动态二维码依赖跳转服务器，如果服务商停运、套餐到期或欠费，二维码就会失效。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>怎么判断我手上的二维码是静态还是动态？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>把二维码解码看内容。如果直接读到你的原始内容（比如 https://你的域名.com/menu），就是静态码；如果读到的是一串陌生的短链接或第三方域名，那就是动态码，中间有一层跳转。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>免费生成的二维码会失效吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>要看生成方式。本地生成的静态码不会失效，与是否付费无关。但如果所谓的免费服务是在服务器上生成的动态码，那么一旦服务商停止运营，码就会失效。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>静态二维码的缺点是什么？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>内容一旦生成就固定了，无法修改。如果二维码已经印刷出去，改内容就意味着必须重新印刷。另外内容越长二维码越密集，小尺寸印刷时越难扫。</p></div>
+  </div>
+</div>
+<!-- FAQ-AUTO-END -->
+
   <section class="g-rel">
     <h2>相关教程</h2>
     <ul>
@@ -290,6 +324,27 @@
   <br>
   <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
 </footer>
+
+<!-- FAQ-SCRIPT -->
+<script>
+// 常见问题折叠。用按钮 + aria-expanded 而非 <details>：
+// details 的展开动画在各浏览器表现不一致，且默认三角不易统一视觉。
+(function () {
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.g-faq-q');
+    if (!btn || !list.contains(btn)) return;
+    var item = btn.parentNode;
+    var on = item.classList.toggle('on');
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    // 展开高度按实际内容算，不用 CSS 里写死的 max-height ——
+    // 硬编码值在答案变长后会把文字截断，是这类折叠组件最常见的隐性 bug。
+    var body = item.querySelector('.g-faq-a');
+    if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
+  });
+})();
+</script>
 
 </body>
 </html>

@@ -327,6 +327,40 @@
     <li><b>换台手机再测</b>排除单台设备的问题，同时验证跨平台兼容性。</li>
   </ol>
 
+<!-- FAQ-AUTO-START -->
+<h2>常见问题</h2>
+<div class="g-faq" id="faqList">
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>为什么美化过的二维码容易扫不出来？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>美化的主要风险是降低对比度和破坏定位图案。二维码靠明暗差异识别，前景与背景颜色太接近会导致识别失败；此外三个角上的定位方块如果被圆角化或变色过度，扫描器就无法定位。保持高对比度、不修改定位图案，通常就能兼顾美观与可用。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>二维码能反着来吗？白底黑码换成黑底白码可以吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>可以，但要谨慎。部分扫描器默认假设深色模块在浅色背景上，反相后识别率会下降，尤其在光线不足时。如果必须反相，建议提高纠错等级并充分实机测试。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>提高纠错等级能让二维码更好扫吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>能提高容错能力，但有代价。纠错等级越高，同样内容需要的模块越多，二维码越密集，反而可能更难扫。对普通场景，M 级是较好的平衡；中心带 Logo 时建议用 H 级。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>屏幕上显示的二维码扫不出来是什么原因？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>常见原因是屏幕亮度太低、屏幕反光，或显示尺寸过小。把屏幕亮度调到最高、关闭自动亮度、避免灯光直射屏幕，并适当放大二维码，通常就能解决。</p></div>
+  </div>
+</div>
+<!-- FAQ-AUTO-END -->
+
   <section class="g-rel">
     <h2>相关教程</h2>
     <ul>
@@ -344,6 +378,27 @@
   <br>
   <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
 </footer>
+
+<!-- FAQ-SCRIPT -->
+<script>
+// 常见问题折叠。用按钮 + aria-expanded 而非 <details>：
+// details 的展开动画在各浏览器表现不一致，且默认三角不易统一视觉。
+(function () {
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.g-faq-q');
+    if (!btn || !list.contains(btn)) return;
+    var item = btn.parentNode;
+    var on = item.classList.toggle('on');
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    // 展开高度按实际内容算，不用 CSS 里写死的 max-height ——
+    // 硬编码值在答案变长后会把文字截断，是这类折叠组件最常见的隐性 bug。
+    var body = item.querySelector('.g-faq-a');
+    if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
+  });
+})();
+</script>
 
 </body>
 </html>

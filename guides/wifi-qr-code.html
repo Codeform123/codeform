@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WiFi 二维码怎么制作？手机一扫自动连（2026 图文教程）— 码方二维码</title>
-<meta name="description" content="手把手教你制作 WiFi 二维码：填好 SSID 和密码，手机摄像头一扫自动连网，不用再报密码。含打印尺寸建议、访客网络安全提醒与常见扫不出来的排查方法。全程本地生成，密码不上传。">
-<meta name="keywords" content="wifi二维码,WiFi二维码怎么制作,wifi二维码生成器,二维码连wifi,免密码连wifi,访客wifi二维码,店铺wifi二维码">
+<meta name="description" content="手把手教你制作 WiFi 二维码：填好 SSID 和密码，手机摄像头一扫自动连网，不用再报密码。含隐藏网络设置、打印尺寸建议、访客网络安全提醒与常见扫不出来的排查方法。全程本地生成，密码不上传。">
+<meta name="keywords" content="wifi二维码,WiFi二维码怎么制作,wifi二维码生成器,二维码连wifi,免密码连wifi,访客wifi二维码,店铺wifi二维码,隐藏网络二维码">
 <link rel="canonical" href="https://mafangqr.com/guides/wifi-qr-code">
 <meta name="theme-color" content="#0a0c12">
 
@@ -62,7 +62,7 @@
       "tool": [{ "@type": "HowToTool", "name": "码方二维码在线生成器" }],
       "step": [
         { "@type": "HowToStep", "position": 1, "name": "找到 WiFi 名称与密码", "text": "在路由器背面贴纸或路由器管理后台查看网络名称（SSID）与密码，注意大小写。" },
-        { "@type": "HowToStep", "position": 2, "name": "在生成器中选择 WiFi 类型", "text": "打开码方二维码，内容类型选「WiFi」，填入 SSID、密码并选择加密方式，通常选 WPA/WPA2。" },
+        { "@type": "HowToStep", "position": 2, "name": "在生成器中选择 WiFi 类型", "text": "打开码方二维码，内容类型选「WiFi」，填入 SSID、密码并选择加密方式，通常选 WPA/WPA2。若路由器未广播 SSID，打开「隐藏网络」开关。" },
         { "@type": "HowToStep", "position": 3, "name": "导出并打印", "text": "点击生成，导出 SVG 用于印刷、PNG 用于屏幕展示，打印尺寸建议不小于 3×3 厘米。" },
         { "@type": "HowToStep", "position": 4, "name": "用两台手机实测", "text": "打印前先用 iPhone 和 Android 各扫一次，确认弹出「加入网络」提示再批量印刷。" }
       ]
@@ -89,6 +89,11 @@
           "@type": "Question",
           "name": "WiFi 二维码打印多大合适？",
           "acceptedAnswer": { "@type": "Answer", "text": "近距离扫码（伸手可及）建议不小于 3×3 厘米；贴在墙上让人站着扫，建议 8 厘米以上。经验法则是每 10 厘米扫码距离对应约 1 厘米二维码边长。" }
+        },
+        {
+          "@type": "Question",
+          "name": "路由器隐藏了 SSID，还能做 WiFi 二维码吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "可以。在生成器里打开「隐藏网络」开关，二维码会带上 H:true 参数，手机扫码时就能连上未广播 SSID 的网络。不开这个开关，手机虽然能读出网络名称，但因为搜不到它会连接失败。" }
         }
       ]
     }
@@ -211,6 +216,44 @@
     把白边裁掉、或者在白边上压字，会直接导致识别失败。</p>
   </div>
 
+  <h2>隐藏网络（未广播 SSID）怎么写</h2>
+
+  <p>
+    有些路由器出于安全考虑会关掉 SSID 广播，网络在别人的 Wi-Fi 列表里根本不出现 ——
+    这就是「隐藏网络」。它带来一个连带问题：手机在设置里手动连它都得先「添加其他网络」，
+    那么二维码还扫得动吗？
+  </p>
+
+  <p>
+    <strong>能，但要多加一个参数。</strong>WiFi 二维码的格式里有一个 <code>H</code> 字段，
+    表示「这是一个隐藏网络」。标准格式长这样：
+  </p>
+
+  <p><code>WIFI:T:WPA;S:网络名称;P:密码;H:true;;</code></p>
+
+  <p>
+    <code>H:true</code> 的位置在密码 <code>P:</code> 之后、结尾双分号之前。
+    码方二维码的 WiFi 面板里有一个「<strong>隐藏网络</strong>」开关，
+    打开它生成时就会自动带上这个参数，不用手写。
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>路由器设置</th><th>开关状态</th><th>扫码结果</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>正常广播 SSID（绝大多数情况）</td><td>关闭</td><td>正常连接</td></tr>
+      <tr><td>关闭了 SSID 广播</td><td>关闭</td><td>能读出网络名，但搜不到网络，连接失败</td></tr>
+      <tr><td>关闭了 SSID 广播</td><td>打开</td><td>正常连接</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><b>怎么判断自己的路由器是不是隐藏网络？</b>用另一台手机打开 Wi-Fi 设置，
+    如果<strong>搜不到</strong>这个网络名称、只能靠手动「添加其他网络」输入 SSID 才能连，
+    那它就是隐藏的，制作时记得打开开关。</p>
+  </div>
+
   <h2>安全提醒：对外贴的码，别用主网络密码</h2>
 
   <p>
@@ -277,6 +320,47 @@
     不用去改二维码的样式或大小，直接回生成器核对信息即可。</p>
   </div>
 
+<!-- FAQ-AUTO-START -->
+<h2>常见问题</h2>
+<div class="g-faq" id="faqList">
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>制作 WiFi 二维码需要下载 App 吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>不需要。在浏览器里就能生成，手机上用系统相机直接扫，iOS 11 与 Android 10 以上都原生支持，不用装扫码软件。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>WiFi 二维码会泄露密码吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>密码本身以明文编码在二维码图案里，任何能解码这张图的人都能读出密码。所以对外的二维码建议使用专门的访客网络，不要用主网络密码。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>换了 WiFi 密码，二维码还能用吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>不能。静态二维码把密码写死在图案里，改密码后必须重新生成并重新打印。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>WiFi 二维码打印多大合适？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>近距离扫码（伸手可及）建议不小于 3×3 厘米；贴在墙上让人站着扫，建议 8 厘米以上。经验法则是每 10 厘米扫码距离对应约 1 厘米二维码边长。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>路由器隐藏了 SSID，还能做 WiFi 二维码吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>可以。在生成器里打开「隐藏网络」开关，二维码会带上 H:true 参数，手机扫码时就能连上未广播 SSID 的网络。不开这个开关，手机虽然能读出网络名称，但因为搜不到它会连接失败。</p></div>
+  </div>
+</div>
+<!-- FAQ-AUTO-END -->
+
   <section class="g-rel">
     <h2>相关教程</h2>
     <ul>
@@ -294,6 +378,27 @@
   <br>
   <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
 </footer>
+
+<!-- FAQ-SCRIPT -->
+<script>
+// 常见问题折叠。用按钮 + aria-expanded 而非 <details>：
+// details 的展开动画在各浏览器表现不一致，且默认三角不易统一视觉。
+(function () {
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.g-faq-q');
+    if (!btn || !list.contains(btn)) return;
+    var item = btn.parentNode;
+    var on = item.classList.toggle('on');
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    // 展开高度按实际内容算，不用 CSS 里写死的 max-height ——
+    // 硬编码值在答案变长后会把文字截断，是这类折叠组件最常见的隐性 bug。
+    var body = item.querySelector('.g-faq-a');
+    if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
+  });
+})();
+</script>
 
 </body>
 </html>

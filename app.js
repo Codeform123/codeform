@@ -43,9 +43,14 @@
         var ssid = $('wifiSsid').value || '';
         var pass = $('wifiPass').value || '';
         var enc = document.querySelector('#wifiEnc button.active').dataset.v;
+        var hid = $('wifiHidden').checked;
         if (!ssid) return '';
-        if (enc === 'nopass') return 'WIFI:T:nopass;S:' + esc(ssid) + ';;';
-        return 'WIFI:T:' + enc + ';S:' + esc(ssid) + ';P:' + esc(pass) + ';;';
+        // H:true 告诉手机「这个网络不广播 SSID，但仍然要连它」。
+        // 位置按 ZXing 的解析约定放在 P 之后、结尾 ;; 之前；
+        // 隐藏网络可以不填，省略即表示不隐藏。
+        var h = hid ? ';H:true' : '';
+        if (enc === 'nopass') return 'WIFI:T:nopass;S:' + esc(ssid) + h + ';;';
+        return 'WIFI:T:' + enc + ';S:' + esc(ssid) + ';P:' + esc(pass) + h + ';;';
       }
       case 'vcard': {
         var name = $('vcName').value || '';
@@ -55,8 +60,17 @@
         // "李,四" 会被切成姓和名 —— 扫进通讯录就是错的。
         var lines = ['BEGIN:VCARD', 'VERSION:3.0', 'N:' + vesc(name), 'FN:' + vesc(name)];
         if ($('vcOrg').value) lines.push('ORG:' + vesc($('vcOrg').value));
+        if ($('vcTitle').value) lines.push('TITLE:' + vesc($('vcTitle').value));
         if ($('vcTel').value) lines.push('TEL:' + vesc($('vcTel').value));
         if ($('vcMail').value) lines.push('EMAIL:' + vesc($('vcMail').value));
+        // URL 不加 vesc：vCard 规范里 URL 的转义规则与文本字段不同，
+        // 冒号斜杠本就是 URL 的一部分，转义反而会让手机识别不出链接。
+        if ($('vcUrl').value) lines.push('URL:' + $('vcUrl').value.trim());
+        // ADR 是「结构化」字段，7 段用 ; 分隔（邮政信箱/门牌/街道/城市/省/邮编/国家），
+        // 地址粘在同一段里最省心：前面留 2 个空段，内容放第 3 段。
+        // 不能对整串做 vesc，否则分隔的 ; 会被一起转义掉。
+        if ($('vcAddr').value) lines.push('ADR:;;' + vesc($('vcAddr').value) + ';;;;');
+        if ($('vcNote').value) lines.push('NOTE:' + vesc($('vcNote').value));
         lines.push('END:VCARD');
         return lines.join('\n');
       }
@@ -534,7 +548,7 @@
   });
 
   // ---------- 事件：输入 ----------
-  ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
+  ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcTitle', 'vcMail', 'vcUrl', 'vcAddr', 'vcNote',
     'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
     $(id).addEventListener('input', render);
   });
@@ -761,6 +775,11 @@
     render();
   });
 
+  // 隐藏网络开关：勾选后编码进 H:true。
+  // 不放进 state 是因为它只属于 WiFi 表单数据本身，
+  // 和样式无关 —— 和 wifiSsid / wifiPass 同类，读表单值即可。
+  $('wifiHidden').addEventListener('change', render);
+
   document.querySelectorAll('#gradPresets .gp').forEach(function (g) {
     g.addEventListener('click', function () {
       document.querySelectorAll('#gradPresets .gp').forEach(function (x) { x.classList.remove('sel'); });
@@ -907,10 +926,13 @@
     $('margin').value = 4; $('marginVal').textContent = '4';
     $('logoDrop').textContent = '点击选择图片 · 自动圆形裁切';
     // 清空所有内容输入
-    ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass', 'vcName', 'vcTel', 'vcOrg', 'vcMail',
+    ['inputText', 'inputUrl', 'wifiSsid', 'wifiPass',
+      'vcName', 'vcTel', 'vcOrg', 'vcTitle', 'vcMail', 'vcUrl', 'vcAddr', 'vcNote',
       'smsTel', 'smsBody', 'telNum', 'mailTo', 'mailSubj', 'mailBody', 'geoLat', 'geoLng'].forEach(function (id) {
       $(id).value = '';
     });
+    // 表单状态类的开关（非文本框）要单独复位
+    $('wifiHidden').checked = false;
     document.querySelectorAll('#geoPreset button').forEach(function (b) { b.classList.remove('active'); });
     clearTplSel();   // 重置按钮在预览卡片里，不走 styleCard 的事件委托，这里手动清
     render();
@@ -1552,7 +1574,11 @@
   // 这里只开两个只读出口：返回的是字符串 / 数字，外部拿不到 state 引用，改不动内部状态。
   window.QRStudioTest = {
     buildSvg: function () { return buildSvg(getContent(), state); },
-    renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); }
+    renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); },
+    // 暴露「当前内容字符串」，供回归测试核对各内容类型的编码格式
+    // （比如 WiFi 的 H:true、vCard 的字段转义是否按规范拼接）。
+    // 只返回字符串，外部拿不到 state 引用，改不动内部状态。
+    content: function () { return getContent(); }
   };
 
   // ---------- 常见问题折叠 ----------
@@ -1567,6 +1593,9 @@
       var item = btn.parentNode;
       var on = item.classList.toggle('on');
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      // 同教程页：按内容实际高度展开，避免 CSS 写死的 max-height 截断长答案
+      var body = item.querySelector('.faq-a');
+      if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
     });
   })();
 

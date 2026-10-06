@@ -210,6 +210,36 @@ code {
 .steps > li:last-child::after { display: none; }
 .steps > li b { display: block; color: var(--ink); font-weight: 650; margin-bottom: 3px; }
 
+/* ---------- 常见问题（折叠） ----------
+   必须与页面 head 里的 FAQPage 结构化数据逐条对应：
+   Google 要求结构化数据与可见内容一致，只标不写会被判欺骗性标记。 */
+.g-faq { margin: 22px 0 8px; }
+.g-faq-item { border-bottom: 1px solid var(--hair); }
+.g-faq-item:last-child { border-bottom: 0; }
+.g-faq-q {
+  width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 15px 2px; font-size: 15.5px; font-weight: 600; color: var(--ink);
+  font-family: inherit; line-height: 1.6;
+  transition: color .18s var(--ease-out);
+}
+.g-faq-q:hover { color: var(--accent); }
+.g-faq-q .chev {
+  flex-shrink: 0; width: 15px; height: 15px; color: var(--ink-3);
+  transition: transform .25s var(--ease-out), color .18s var(--ease-out);
+}
+.g-faq-item.on .g-faq-q .chev { transform: rotate(180deg); color: var(--accent); }
+.g-faq-a {
+  overflow: hidden; max-height: 0; opacity: 0;
+  transition: max-height .3s var(--ease-out), opacity .25s var(--ease-out);
+}
+/* JS 会用内联 max-height 精确控制展开高度；这里的值只是
+   JS 未执行时的兜底，别设太小以免内容被切。 */
+.g-faq-item.on .g-faq-a { max-height: 1200px; opacity: 1; }
+.g-faq-a p {
+  margin: 0; padding: 0 2px 17px; font-size: 14.5px; line-height: 1.78; color: var(--ink-2);
+}
+
 /* ---------- 相关阅读 ---------- */
 .g-rel { margin-top: 52px; padding-top: 26px; border-top: 1px solid var(--hair); }
 .g-rel h2 { font-size: 16px; margin: 0 0 16px; padding: 0; border: 0; color: var(--ink-2); font-weight: 600; }

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>名片二维码怎么做？手机一扫直接存通讯录（vCard 教程）— 码方二维码</title>
-<meta name="description" content="把姓名、电话、公司、邮箱做成 vCard 名片二维码，对方一扫直接存进通讯录，不用手输。含字段说明、特殊字符转义坑、展会使用建议与打印尺寸。本地生成，不外传。">
+<meta name="description" content="把姓名、电话、公司、职位、邮箱、网址等做成 vCard 名片二维码，对方一扫直接存进通讯录，不用手输。含 8 个字段说明、特殊字符转义坑、展会使用建议与打印尺寸。本地生成，不外传。">
 <meta name="keywords" content="名片二维码,vcard二维码,电子名片二维码,通讯录二维码,二维码名片怎么做,展会名片二维码,联系人二维码">
 <link rel="canonical" href="https://mafangqr.com/guides/vcard-qr-code">
 <meta name="theme-color" content="#0a0c12">
@@ -60,8 +60,8 @@
       "totalTime": "PT3M",
       "tool": [{ "@type": "HowToTool", "name": "码方二维码在线生成器" }],
       "step": [
-        { "@type": "HowToStep", "position": 1, "name": "整理要放的字段", "text": "姓名是必填项，其余如公司、电话、邮箱按需填写。字段越多二维码越密，建议只放最核心的联系方式。" },
-        { "@type": "HowToStep", "position": 2, "name": "在生成器中选择名片类型", "text": "打开码方二维码，内容类型选「名片」，填写姓名、电话、公司、邮箱。姓名中使用逗号或分号时工具会自动转义。" },
+        { "@type": "HowToStep", "position": 1, "name": "整理要放的字段", "text": "姓名是必填项，其余如公司、职位、电话、邮箱、网址、地址、备注按需填写。字段越多二维码越密，建议只放最核心的联系方式。" },
+        { "@type": "HowToStep", "position": 2, "name": "在生成器中选择名片类型", "text": "打开码方二维码，内容类型选「名片」，可填姓名、电话、公司、职位、邮箱、网址、地址、备注共 8 个字段。姓名或公司名里含逗号、分号、反斜杠时工具会自动转义。" },
         { "@type": "HowToStep", "position": 3, "name": "导出并印刷", "text": "名片上建议二维码边长 2.5 至 3 厘米；展会展架建议 15 厘米以上，让站在一米外的人也能扫。" },
         { "@type": "HowToStep", "position": 4, "name": "用 iPhone 和 Android 各测一次", "text": "两个平台对 vCard 的处理略有差异，确认都能正确弹出「添加联系人」再批量印刷。" }
       ]
@@ -77,7 +77,7 @@
         {
           "@type": "Question",
           "name": "名片二维码里放多少信息合适？",
-          "acceptedAnswer": { "@type": "Answer", "text": "建议只放最核心的字段：姓名、电话、公司、邮箱。信息越多二维码越密集，小尺寸印刷时越难扫。如果需要展示更多内容，可以放一个个人主页链接而不放大量文本。" }
+          "acceptedAnswer": { "@type": "Answer", "text": "建议只放最核心的字段：姓名、电话、公司、职位、邮箱。信息越多二维码越密集，小尺寸印刷时越难扫。码方支持姓名、电话、公司、职位、邮箱、网址、地址、备注共 8 个字段，但不必全填——只填必需项，二维码会更稀疏好扫。如果需要展示更多内容，可以放一个个人主页链接而不放大量文本。" }
         },
         {
           "@type": "Question",
@@ -136,12 +136,38 @@
     从九十年代沿用至今。编码进二维码之后长这样：
   </p>
 
-  <p><code>BEGIN:VCARD<br>VERSION:3.0<br>N:张三<br>FN:张三<br>TEL:13800138000<br>EMAIL:hi@example.com<br>END:VCARD</code></p>
+  <p><code>BEGIN:VCARD<br>VERSION:3.0<br>N:张三<br>FN:张三<br>ORG:某某科技<br>TITLE:产品经理<br>TEL:13800138000<br>EMAIL:hi@example.com<br>URL:https://example.com<br>ADR:;;北京市朝阳区某某路 1 号;;;;<br>NOTE:一句话介绍自己<br>END:VCARD</code></p>
 
   <p>
     手机相机扫到这段格式后，会识别出「这是一个联系人」，
     然后弹出「添加联系人」按钮，点一下就直接存进系统通讯录 ——
     字段自动填好，和手动逐个输入的效果完全一样。
+  </p>
+
+  <h3 style="margin-top:26px">支持的 8 个字段</h3>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>你填的</th><th>vCard 字段</th><th>在通讯录里变成</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>姓名（必填）</td><td><code>N</code> / <code>FN</code></td><td>姓名，FN 是全名显示字段</td></tr>
+      <tr><td>电话</td><td><code>TEL</code></td><td>手机号 / 电话</td></tr>
+      <tr><td>公司</td><td><code>ORG</code></td><td>组织 / 公司</td></tr>
+      <tr><td>职位</td><td><code>TITLE</code></td><td>职位头衔</td></tr>
+      <tr><td>邮箱</td><td><code>EMAIL</code></td><td>邮箱地址</td></tr>
+      <tr><td>网址</td><td><code>URL</code></td><td>个人主页 / 公司网址</td></tr>
+      <tr><td>地址</td><td><code>ADR</code></td><td>邮寄地址（结构化格式，见下方说明）</td></tr>
+      <tr><td>备注</td><td><code>NOTE</code></td><td>备注栏</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    除姓名外都可留空。有两处规范上的细节值得说明，因为不少工具做错了：
+    <strong>网址不做转义</strong> —— URL 里的冒号和斜杠本来就是地址的一部分，
+    转义反而会让手机认不出是链接；<strong>地址用结构化的 ADR 字段</strong>，
+    它由 7 段组成（邮政信箱 / 门牌 / 街道 / 城市 / 省 / 邮编 / 国家），
+    中间用分号分隔，所以不能把整串地址当成普通文本去转义。
   </p>
 
   <div class="note">
@@ -156,13 +182,13 @@
     <li>
       <b>先想清楚要放哪些字段</b>
       姓名是必填，其余按需。这里有个权衡：<strong>字段越多，二维码越密集</strong>，
-      印小尺寸时就越难扫。建议只放核心的——姓名、电话、公司、邮箱，
-      展会上够用了。
+      印小尺寸时就越难扫。建议只放核心的——姓名、电话、公司、职位、邮箱，
+      展会上够用了；网址、地址、备注这些留给电子版或单独链接。
     </li>
     <li>
       <b>在生成器里选「名片」并填写</b>
       打开<a href="/?type=vcard">码方二维码的名片功能</a>，内容类型选「名片」，
-      逐个填好字段。填完右侧会实时预览。
+      逐个填好字段（共 8 个，除姓名外都可留空）。填完右侧会实时预览。
     </li>
     <li>
       <b>选合适尺寸导出</b>
@@ -179,7 +205,7 @@
 
   <div class="g-cta-card">
     <h3>现在就做一张你的名片二维码</h3>
-    <p>姓名、电话、公司、邮箱填进去，实时预览，免费导出。内容不离开你的浏览器。</p>
+    <p>姓名、电话、公司、职位、邮箱等 8 个字段填进去，实时预览，免费导出。内容不离开你的浏览器。</p>
     <a class="g-btn" href="/?type=vcard">打开名片二维码生成器 →</a>
   </div>
 
@@ -230,8 +256,8 @@
     <tbody>
       <tr><td>姓名 + 电话</td><td>稀疏</td><td>2 cm</td></tr>
       <tr><td>姓名 + 电话 + 公司</td><td>适中</td><td>2.5 cm</td></tr>
-      <tr><td>姓名 + 电话 + 公司 + 邮箱</td><td>正常</td><td>3 cm</td></tr>
-      <tr><td>以上全部 + 地址 + 网址 + 职位</td><td>密集</td><td>4 cm 以上</td></tr>
+      <tr><td>姓名 + 电话 + 公司 + 职位 + 邮箱</td><td>正常</td><td>3 cm</td></tr>
+      <tr><td>以上全部 + 网址 + 地址 + 备注</td><td>密集</td><td>4 cm 以上</td></tr>
     </tbody>
   </table>
 
@@ -288,6 +314,40 @@
     旁边再放一个主页链接二维码引导深入了解。
   </p>
 
+<!-- FAQ-AUTO-START -->
+<h2>常见问题</h2>
+<div class="g-faq" id="faqList">
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>名片二维码和电子名片有什么区别？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>名片二维码是把 vCard 格式的联系人信息直接编码进二维码图案里，扫码后手机本地解析并存进通讯录，不依赖网络也不依赖任何服务器。电子名片通常是一个网页链接，扫码后打开页面展示信息，依赖服务器可用性。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>名片二维码里放多少信息合适？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>建议只放最核心的字段：姓名、电话、公司、职位、邮箱。信息越多二维码越密集，小尺寸印刷时越难扫。码方支持姓名、电话、公司、职位、邮箱、网址、地址、备注共 8 个字段，但不必全填——只填必需项，二维码会更稀疏好扫。如果需要展示更多内容，可以放一个个人主页链接而不放大量文本。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>姓名里有逗号或分号会影响扫码吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>会影响。vCard 规范里逗号和分号是字段分隔符，如果姓名或公司名里含这些字符而不做转义，扫码存入通讯录时会被错误拆分成两个字段。码方在生成时会自动做转义处理。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>名片二维码会过期吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>不会。这是静态二维码，信息直接编码在图案里，没有跳转服务也没有有效期。但反过来说，如果你换了手机号或公司，就需要重新生成并更换名片。</p></div>
+  </div>
+</div>
+<!-- FAQ-AUTO-END -->
+
   <section class="g-rel">
     <h2>相关教程</h2>
     <ul>
@@ -305,6 +365,27 @@
   <br>
   <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
 </footer>
+
+<!-- FAQ-SCRIPT -->
+<script>
+// 常见问题折叠。用按钮 + aria-expanded 而非 <details>：
+// details 的展开动画在各浏览器表现不一致，且默认三角不易统一视觉。
+(function () {
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.g-faq-q');
+    if (!btn || !list.contains(btn)) return;
+    var item = btn.parentNode;
+    var on = item.classList.toggle('on');
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    // 展开高度按实际内容算，不用 CSS 里写死的 max-height ——
+    // 硬编码值在答案变长后会把文字截断，是这类折叠组件最常见的隐性 bug。
+    var body = item.querySelector('.g-faq-a');
+    if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
+  });
+})();
+</script>
 
 </body>
 </html>

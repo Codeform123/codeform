@@ -13,7 +13,7 @@
    对本站这种小体积静态资源完全可以接受。
    ============================================================ */
 
-var VERSION = 'codeform-v3';
+var VERSION = 'codeform-v4';
 var CACHE = VERSION + '-assets';
 
 /* 预缓存清单：只放「离线时必需」的资源。

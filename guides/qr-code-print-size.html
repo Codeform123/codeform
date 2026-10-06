@@ -317,6 +317,40 @@
     </li>
   </ol>
 
+<!-- FAQ-AUTO-START -->
+<h2>常见问题</h2>
+<div class="g-faq" id="faqList">
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>二维码最小能印多小？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>实用下限约为 2×2 厘米，这是手机近距离手持扫描的极限。再小就需要极好的印刷精度和充足光线，日常印刷不建议低于这个尺寸。名片上通常用 2.5 至 3 厘米。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>打印二维码应该用多大的分辨率？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>推荐直接导出 SVG 矢量格式，任意尺寸都不失真。若必须用位图 PNG，印刷尺寸（厘米）乘以 300 再除以 2.54，即为所需像素数。例如印 5 厘米宽需要约 590 像素。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>二维码四周的空白要留多少？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>至少留出 4 个模块（二维码最小方格）宽度的空白，专业上称为静区或 quiet zone。把白边裁掉或压上文字，是导致扫码失败最常见的原因之一。</p></div>
+  </div>
+  <div class="g-faq-item">
+    <button class="g-faq-q" type="button" aria-expanded="false">
+      <span>内容越长，二维码就要印得越大吗？</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="g-faq-a"><p>是的。内容越长，二维码的模块数量越多、单个模块越小，要达到同样的识别效果就需要更大的印刷尺寸。这就是短链接能提升扫码成功率的原因。</p></div>
+  </div>
+</div>
+<!-- FAQ-AUTO-END -->
+
   <section class="g-rel">
     <h2>相关教程</h2>
     <ul>
@@ -334,6 +368,27 @@
   <br>
   <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
 </footer>
+
+<!-- FAQ-SCRIPT -->
+<script>
+// 常见问题折叠。用按钮 + aria-expanded 而非 <details>：
+// details 的展开动画在各浏览器表现不一致，且默认三角不易统一视觉。
+(function () {
+  var list = document.getElementById('faqList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.g-faq-q');
+    if (!btn || !list.contains(btn)) return;
+    var item = btn.parentNode;
+    var on = item.classList.toggle('on');
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    // 展开高度按实际内容算，不用 CSS 里写死的 max-height ——
+    // 硬编码值在答案变长后会把文字截断，是这类折叠组件最常见的隐性 bug。
+    var body = item.querySelector('.g-faq-a');
+    if (body) body.style.maxHeight = on ? (body.scrollHeight + 20) + 'px' : '';
+  });
+})();
+</script>
 
 </body>
 </html>

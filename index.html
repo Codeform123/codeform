@@ -417,6 +417,11 @@
     margin-bottom: 9px; letter-spacing: .005em;
   }
   .field input[type="text"] { font-size: 13.5px; padding: 10px 12px; }
+  /* 字段下方的辅助说明：比 label 更轻，不抢视线 */
+  .field-note {
+    margin-top: 12px; font-size: 12px; line-height: 1.6; color: var(--ink-3);
+    padding-left: 2px;
+  }
 
   /* ================= 分段控件（seg） ================= */
   .seg {
@@ -1079,6 +1084,16 @@
               </div>
             </div>
           </div>
+          <div class="grad-toggle" style="margin-top:16px">
+            <div>
+              <div class="lbl-t">隐藏网络</div>
+              <div class="lbl-s">路由器未广播 SSID 时开启，否则手机搜不到这个网络</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="wifiHidden">
+              <span class="track"></span>
+            </label>
+          </div>
         </div>
 
         <div id="panel-vcard" class="hidden">
@@ -1088,8 +1103,19 @@
           </div>
           <div class="row" style="margin-top:12px">
             <div class="field"><label>公司</label><input type="text" id="vcOrg" placeholder="某某科技"></div>
-            <div class="field"><label>邮箱</label><input type="text" id="vcMail" placeholder="hi@example.com"></div>
+            <div class="field"><label>职位</label><input type="text" id="vcTitle" placeholder="产品经理"></div>
           </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label>邮箱</label><input type="text" id="vcMail" placeholder="hi@example.com"></div>
+            <div class="field"><label>网址</label><input type="text" id="vcUrl" placeholder="https://example.com"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label>地址（可选）</label><input type="text" id="vcAddr" placeholder="北京市朝阳区某某路 1 号"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label>备注（可选）</label><input type="text" id="vcNote" placeholder="一句话介绍自己"></div>
+          </div>
+          <div class="field-note">字段越多二维码越密集，小尺寸印刷时越难扫。只填必需项即可。</div>
         </div>
 
         <div id="panel-sms" class="hidden">
