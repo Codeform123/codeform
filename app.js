@@ -1570,6 +1570,53 @@
     });
   })();
 
+  // ---------- Service Worker 注册 ----------
+  // 只在安全上下文注册。浏览器把 https 与 localhost/127.0.0.1 都算安全源，
+  // 但 file:// 打开本地文件时不注册 —— 那种场景下 SW 缓存会让人误以为
+  // 「改了代码没生效」，白白浪费时间排查。
+  (function initSW() {
+    if (!('serviceWorker' in navigator)) return;
+    var secure = location.protocol === 'https:' ||
+                 location.hostname === 'localhost' ||
+                 location.hostname === '127.0.0.1';
+    if (!secure) return;
+
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        // 有新版 SW 在等待时，提示用户刷新（不自动刷新，
+        // 免得用户正输入到一半被刷掉）
+        reg.addEventListener('updatefound', function () {
+          var sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', function () {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('检测到新版本，刷新页面即可更新');
+            }
+          });
+        });
+      }).catch(function (err) {
+        console.warn('[SW] 注册失败（不影响使用）:', err.message);
+      });
+    });
+  })();
+
+  // ---------- URL 参数：支持 PWA 快捷方式 ----------
+  // manifest.shortcuts 里声明了 /?mode=batch 与 /?mode=scan，
+  // 从主屏长按图标可直达对应模式。
+  (function initShortcut() {
+    var m = new URLSearchParams(location.search).get('mode');
+    if (m !== 'batch' && m !== 'scan') return;
+
+    function apply() {
+      var btn = document.querySelector('#modeSwitch button[data-mode="' + m + '"]');
+      if (!btn) return false;
+      btn.click();
+      return true;
+    }
+    // DOM 与 render() 都就绪后再切，避免被随后的首屏渲染覆盖回去
+    setTimeout(apply, 60);
+  })();
+
   // ---------- 初始化 ----------
   render();
 })();

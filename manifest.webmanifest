@@ -1,0 +1,56 @@
+{
+  "name": "码方二维码 Codeform — 免费在线二维码生成器",
+  "short_name": "码方二维码",
+  "description": "纯本地生成的免费二维码生成器：实时预览、自由配色、Logo 嵌入，支持 PNG / SVG 导出与批量生成。内容不上传，断网可用。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0c12",
+  "theme_color": "#0a0c12",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "brand/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "brand/icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "批量生成二维码",
+      "short_name": "批量生成",
+      "description": "粘贴多行内容，一次生成并打包下载",
+      "url": "/?mode=batch",
+      "icons": [{ "src": "brand/icon-256.png", "sizes": "256x256", "type": "image/png" }]
+    },
+    {
+      "name": "扫一扫（本地解码）",
+      "short_name": "扫码",
+      "description": "上传二维码图片，在本地识别内容",
+      "url": "/?mode=scan",
+      "icons": [{ "src": "brand/icon-256.png", "sizes": "256x256", "type": "image/png" }]
+    }
+  ]
+}
