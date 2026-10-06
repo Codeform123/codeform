@@ -11,8 +11,6 @@
     ecLevel: 'M',
     margin: 4,
     logoImg: null,
-    frameShape: 'square',   // 外框形状（码点仍是方阵，外面套形状）
-    bodyShape: 'square',    // 码点形状（码点自己铺成形状，见 body_shapes.js）
     // 第二批
     gradOn: false,
     gradA: '#0c2a6b',
@@ -169,67 +167,25 @@
   // 所以渲染时强制 H —— 这与「好看永远不以扫不出来为代价」的原则一致，
   // 微信码也是这么做的。UI 侧（bindSeg ecLevel）会同步锁定，避免显示与实际不一致。
   function effEc(cfg) {
-    // 中心放了 Logo → H（遮挡靠冗余补）
     if (cfg.logoImg) return 'H';
-    // 码点形状裁掉了一部分模块 → 也必须 H。
-    // 形状裁的是"整块区域"，和 Logo 的局部遮挡同性质，都靠纠错冗余兜底。
-    if (window.BodyShapes && window.BodyShapes.isShaped(cfg.bodyShape)) return 'H';
     return cfg.ecLevel;
-  }
-
-  // ---- 整体轮廓形状：统一解析 ----
-  // Canvas 与 SVG 两条渲染路径都必须走这里拿形状，
-  // 绝不各自 inline 判断 —— 否则就会出现「预览是圆形、导出是方形」。
-  // 帧形状不遮挡任何码点（形状只在码区外长出来），所以不需要像 Logo 那样强制 H。
-  function shapeKeyOf(cfg) {
-    var k = cfg && cfg.frameShape;
-    if (window.FrameShapes && window.FrameShapes.keys.indexOf(k) >= 0) return k;
-    return 'square';
-  }
-
-  // ---- 码点形状（bodyShape）：码点自己铺成形状 ----
-  // 与外框（frameShape）完全无关的两件事，见 body_shapes.js 文件头。
-  function bodyKeyOf(cfg) {
-    var k = cfg && cfg.bodyShape;
-    if (window.BodyShapes && window.BodyShapes.keys.indexOf(k) >= 0) return k;
-    return 'square';
-  }
-  function bodyOn(cfg) {
-    return !!(window.BodyShapes && window.BodyShapes.isShaped(bodyKeyOf(cfg)));
-  }
-
-  // 形状包住码区所需的画布放大倍率（方形恒为 1）
-  function shapeRatio(cfg) {
-    if (!window.FrameShapes) return 1;
-    return window.FrameShapes.fitRatio(shapeKeyOf(cfg));
   }
 
   // ---- 布局求解（Canvas 与 SVG 共用，杜绝两条路径算出不同画幅）----
   // total   码区模块数（含静默边距）
   // target  用户选的目标画幅（像素）
-  // ratio   形状的最小安全倍率
   //
-  // 方形：画幅 = 码区边长。模块必须整数像素对齐，否则会出现半像素的模糊边界，
-  //       所以方码拿到 592 而不是 600 是刻意的（也是它一直以来的行为）。
-  //
-  // 异形：画幅精确命中 target。形状倍率放大到 canvasSize/drawSize，
-  //       这个值恒 ≥ 最小安全倍率（因为 drawSize ≤ target/ratio），
-  //       所以码区照样被完整包住，只是留白比最小值多一点。
-  //       不这么做的话：菱形 cell 从 7.99 取整到 7，画幅只剩 526 —— 用户选 600
-  //       拿到 526，怎么看都像 bug。
-  function solveLayout(total, target, shapeKey, ratio) {
-    var cell = Math.floor(target / ratio / total);
+  // 模块必须整数像素对齐，否则会出现半像素的模糊边界，
+  // 所以拿到 592 而不是 600 是刻意的（一直以来的行为）。
+  function solveLayout(total, target) {
+    var cell = Math.floor(target / total);
     if (cell < 1) cell = 1;
     var drawSize = cell * total;
-    var canvasSize = (shapeKey === 'square')
-      ? drawSize
-      : Math.max(target, Math.round(drawSize * ratio));
     return {
       cell: cell,
       drawSize: drawSize,
-      canvasSize: canvasSize,
-      shapeRatio: canvasSize / drawSize,
-      pad: Math.round((canvasSize - drawSize) / 2)
+      canvasSize: drawSize,
+      pad: 0
     };
   }
 
@@ -239,21 +195,10 @@
   function renderTo(targetCanvas, content, cfg) {
     var c2d = targetCanvas.getContext('2d');
 
-    // ---- 码点形状：先决定版本，再生成 ----
-    // 形状会裁掉一部分码点，数据容量随之变小 —— 所以要先把形状定下来，
-    // 用它对应的最小版本去生成，而不是沿用方码的版本。
-    var bodyKey = bodyKeyOf(cfg);
-    var bodyKeyOn = bodyOn(cfg);
+    // ---- 生成二维码 ----
     var qr;
     try {
-      if (bodyKeyOn) {
-        var ecB = effEc(cfg);
-        var vb = window.BodyShapes.pickVersion(content, ecB, bodyKey);
-        if (vb == null) return null;   // 形状太小，这个内容放不下
-        qr = window.QRCore.generate(content, ecB, vb);
-      } else {
-        qr = window.QRCore.generate(content, effEc(cfg));
-      }
+      qr = window.QRCore.generate(content, effEc(cfg));
     } catch (e) {
       return null;   // 内容过长，调用方决定怎么处理
     }
@@ -263,28 +208,8 @@
     var total = count + margin * 2;
     var target = cfg.exportSize || 600;
 
-    // 形状码的裁剪判定（模块坐标系；外框码时为 null）
-    //
-    // 注意统计口径：只能数"真的有模块、且被形状裁掉"的格子。
-    // 早期版本直接数"判定为不保留"的格子数，得出的数字毫无意义 ——
-    // 因为码区里本来就有大量空白格（没有模块），裁不裁都一样，
-    // 实测同一个形状改连通臂参数、统计值变了 36，渲染出来却像素级零差异。
-    var bodyKeep = null, bodyCut = 0, bodyMods = 0;
-    if (bodyKeyOn) {
-      bodyKeep = window.BodyShapes.keepFn(bodyKey, count);
-      for (var br = 0; br < count; br++) for (var bc = 0; bc < count; bc++) {
-        if (!qr.modules[br][bc]) continue;         // 空白格不参与统计
-        bodyMods++;
-        if (!bodyKeep((bc + .5) / count, (br + .5) / count)) bodyCut++;
-      }
-    }
-
-    // ---- 异形轮廓：先按「码区占最终画布的比例」反推模块大小 ----
-    // 形状只往外长、绝不裁码，所以最终画布 = 码区 × fitRatio，
-    // 而 exportSize 指的是最终画布边长 —— 得先除回去，模块才是整数对齐的。
-    var shapeKey = shapeKeyOf(cfg);
-    var ratio = shapeRatio(cfg);
-    var L = solveLayout(total, target, shapeKey, ratio);
+    // ---- 布局：码区正方形，整除对齐 ----
+    var L = solveLayout(total, target);
     var cell = L.cell;                 // 模块像素大小
     var drawSize = L.drawSize;         // 码区边长（含静默边距）
     var canvasSize = L.canvasSize;     // 最终画布边长
@@ -296,17 +221,12 @@
     var offset = margin * cell;
     var padX = L.pad;
     var padY = L.pad;
-    offset += padX;   // 码区左上角：静默边距 + 形状留白
+    offset += padX;
 
-    // 背景：先清空（形状之外保持透明，导出后能直接贴到任何底图上），
-    // 再把形状内部填成背景色。
+    // 背景
     c2d.clearRect(0, 0, canvasSize, canvasSize);
     c2d.fillStyle = cfg.bg;
-    if (shapeKey === 'square') {
-      c2d.fillRect(0, 0, canvasSize, canvasSize);
-    } else {
-      c2d.fill(window.FrameShapes.path2d(shapeKey, canvasSize, canvasSize / 2, canvasSize / 2));
-    }
+    c2d.fillRect(0, 0, canvasSize, canvasSize);
 
     // 渐变填充准备（以码区为参照，形状留白不参与渐变范围）
     var fillStyle = cfg.fg;
@@ -340,9 +260,6 @@
       for (var c = 0; c < count; c++) {
         if (!qr.modules[r][c]) continue;
         if (inEye[r + ',' + c]) continue;   // 定位图案单独绘制
-        // 形状码：形状外的码点不画 —— 这就是"码点自己围出形状"的实现。
-        // 判定用模块中心点，避免边界抖动产生半格毛刺。
-        if (bodyKeep && !bodyKeep((c + .5) / count, (r + .5) / count)) continue;
         var x = offset + c * cell;
         var y = offset + r * cell;
         drawModule(c2d, x, y, cell, r, c, count, qr, cfg);
@@ -384,9 +301,9 @@
     // 灰边会让扫码器的二值化判断不稳定，同一张图时好时坏。
     //
     // 二值化只在「纯色前景」下做（渐变必须保留，不能压成纯色，这是硬约束）。
-    // 触发条件：码点带弧、定位图案带弧，或整体是异形轮廓（曲线边缘同理）。
+    // 触发条件：码点带弧，或定位图案带弧。
     var needBin = !cfg.gradOn && (cfg.dotStyle === 'dot' || cfg.dotStyle === 'liquid'
-                   || cfg.eyeStyle !== 'square' || shapeKey !== 'square');
+                   || cfg.eyeStyle !== 'square');
     if (needBin) {
       var imgData = c2d.getImageData(0, 0, canvasSize, canvasSize);
       var px = imgData.data;
@@ -419,15 +336,9 @@
     return {
       size: qr.size,
       drawSize: drawSize,        // 码区边长（含静默边距）
-      canvasSize: canvasSize,    // 最终画布边长（异形时 > drawSize）
-      shape: shapeKey,
+      canvasSize: canvasSize,    // 最终画布边长
       total: total,
       cell: cell,
-      // 码点形状（bodyShape）—— 与外框是两回事，测试与排查都要能单独读到
-      bodyShape: bodyKey,
-      bodyCut: bodyCut,          // 真实有模块、且被形状裁掉的个数
-      bodyMods: bodyMods,        // 码区里真实模块总数（分母）
-      bodyRatio: (bodyKeyOn && bodyMods) ? (bodyMods - bodyCut) / bodyMods : 1,
       ec: effEc(cfg)
     };
   }
@@ -485,18 +396,10 @@
       document.querySelectorAll('#sizes .sz').forEach(function (b) {
         var want = parseInt(b.dataset.v, 10);
         var real = info.canvasSize;
-        // 异形时画幅精确等于目标值，但码区会内缩 —— 这也是「和目标不一致」，
-        // 不标出来用户会以为形状偷偷改了他的尺寸。
-        var isShape = info.shape !== 'square';
-        var off = isShape ? (info.drawSize !== want) : (real !== want);
-        var why = '';
-        if (off) {
-          why = isShape
-            ? '画幅 ' + real + '×' + real + 'px，其中码区 ' + info.drawSize
-              + '×' + info.drawSize + 'px（' + window.FrameShapes.name(info.shape)
-              + ' 在码区外围生长）'
-            : '导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）';
-        }
+        var off = real !== want;
+        var why = off
+          ? '导出实际为 ' + real + '×' + real + 'px（模块整数倍对齐，保证清晰）'
+          : '';
         b.classList.toggle('adjusted', off);
         b.title = why;
       });
@@ -752,14 +655,11 @@
     var box = $('ecLevel');
     box.querySelectorAll('button').forEach(function (b) {
       b.addEventListener('click', function () {
-        // 两种情况下渲染管线会强制 H，UI 必须跟着锁住，
+        // 放了 Logo 时渲染管线会强制 H，UI 必须跟着锁住，
         // 否则会出现"界面显示 M、实际渲染 H"的错位。
-        var needH = state.logoImg
-          || (window.BodyShapes && window.BodyShapes.isShaped(state.bodyShape));
+        var needH = !!state.logoImg;
         if (needH && b.dataset.v !== 'H') {
-          toast(state.logoImg
-            ? '中心放了 Logo，纠错等级需保持 H 才能稳定扫出'
-            : '码点形状会裁掉部分模块，纠错等级需保持 H 来补偿');
+          toast('中心放了 Logo，纠错等级需保持 H 才能稳定扫出');
           syncSegUI('ecLevel', effEc(state));
           return;
         }
@@ -774,58 +674,6 @@
   bindSeg('eyeStyle', 'eyeStyle');
 
   // ---------- 事件：整体轮廓形状 ----------
-  // 网格由 FrameShapes 的几何直接生成缩略图 —— 缩略图画的就是导出时会用的
-  // 同一条 path，不存在「缩略图是心形、导出是别的形」。
-  // 缩略图：把形状判定函数"画"成小图。
-  // 两个网格（外框 / 码点形状）共用这套生成逻辑，只是几何来源不同：
-  //   外框   → FrameShapes.unitPath 给出 SVG path
-  //   码点形状 → BodyShapes 只给判定函数，这里逐格采样画成马赛克
-  //     （马赛克正好能让用户预期到"形状边缘是锯齿的"，不骗人）
-  function shapeThumbPath(it) {
-    return '<svg width="26" height="26" viewBox="0 0 1 1" aria-hidden="true">'
-      + '<path d="' + window.FrameShapes.unitPath(it.k) + '"/></svg>';
-  }
-  function shapeThumbBody(it) {
-    var G = 7;                        // 7x7 采样，够看出形状又能看出颗粒感
-    var d = '';
-    for (var r = 0; r < G; r++) for (var c = 0; c < G; c++) {
-      if (!it.fn((c + .5) / G, (r + .5) / G)) continue;
-      // viewBox 用 0 0 1 1，每格边长 1/G，留一丝缝让颗粒可辨
-      d += '<rect x="' + (c / G) + '" y="' + (r / G)
-        + '" width="' + (1 / G) + '" height="' + (1 / G) + '"/>';
-    }
-    return '<svg width="26" height="26" viewBox="0 0 1 1" aria-hidden="true">' + d + '</svg>';
-  }
-
-  function buildShapeGrid(boxId, items, thumb, onPick) {
-    var box = $(boxId);
-    if (!box) return;
-    box.innerHTML = '';
-    items.forEach(function (it) {
-      var b = document.createElement('button');
-      b.className = 'shape-cell';
-      b.dataset.v = it.k;
-      b.type = 'button';
-      b.innerHTML = thumb(it) + '<span>' + it.n + '</span>';
-      b.addEventListener('click', function () {
-        onPick(it.k);
-        syncStyleUI();
-        render();
-      });
-      box.appendChild(b);
-    });
-  }
-
-  if (window.FrameShapes) {
-    buildShapeGrid('frameShape', window.FrameShapes.list, shapeThumbPath,
-      function (k) { state.frameShape = k; });
-  }
-  if (window.BodyShapes) {
-    buildShapeGrid('bodyShape', window.BodyShapes.list.map(function (it) {
-      return { k: it.k, n: it.n, fn: window.BodyShapes._defs[it.k] };
-    }), shapeThumbBody, function (k) { state.bodyShape = k; });
-  }
-
   // ---------- 美化模板 ----------
   // 每套模板 = 一份完整「外观」快照：配色（纯色或渐变）+ 码点形状 + 定位图案形状。
   // 刻意【不包含】纠错等级、静默边距、导出尺寸、Logo —— 这些是用户的功能设置，
@@ -880,44 +728,17 @@
       b.classList.toggle('active', b.dataset.v === val);
     });
   }
-  // 轮廓形状的选中态 + 说明文案。
-  // 说明里如实写出「画布会放大到多少」—— 用户点了心形发现导出尺寸变了，
-  // 不解释就是 bug，解释了就是设计。
-  function syncShapeUI() {
-    var fk = shapeKeyOf(state), bk = bodyKeyOf(state);
-    var fb = $('frameShape'), bb = $('bodyShape');
-    if (fb) fb.querySelectorAll('.shape-cell').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.v === fk);
-    });
-    if (bb) bb.querySelectorAll('.shape-cell').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.v === bk);
-    });
-
-    var note = $('shapeNote');
-    if (!note) return;
-    if (bk === 'square') {
-      note.innerHTML = '当前码点是方阵。<b>选码点形状后，形状外的码点会不画</b>，'
-        + '由码点自己围出形状 —— 定位图案、校正图案会自动保护，纠错等级自动提到 H。';
-      return;
-    }
-    // 形状码的说明：如实交代代价，别让用户以为是免费的
-    note.innerHTML = '<b>' + window.BodyShapes.name(bk) + '</b>：形状外的码点不画，'
-      + '四个角会补回定位图案，纠错自动升到 H 补偿。'
-      + '<span style="color:var(--ink-4)">受扫码器物理限制，菱形、尖角水滴这类"切掉四个角"的形状做不出来。</span>';
-  }
-
   function syncStyleUI() {
     syncSwatchUI('fgSwatches', 'fgColor', state.fg);
     syncSwatchUI('bgSwatches', 'bgColor', state.bg);
     syncSwatchUI('eyeSwatches', 'eyeColor', state.eyeColor);
     syncSegUI('dotStyle', state.dotStyle);
     // 纠错等级的高亮跟随【实际生效值】而不是用户存的原始值：
-    // 放了 Logo 或选了码点形状时代码里会强制 H，UI 必须显示 H，
+    // 放了 Logo 时代码里会强制 H，UI 必须显示 H，
     // 否则界面上写 M、实际渲染 H，用户被误导。
     syncSegUI('ecLevel', effEc(state));
     syncSegUI('gradDir', state.gradDir);
     syncSegUI('eyeStyle', state.eyeStyle);
-    syncShapeUI();
     $('gradOn').checked = state.gradOn;
     $('gradRow').classList.toggle('on', state.gradOn);
     $('fgLabel').textContent = state.gradOn ? '前景色（被渐变覆盖）' : '前景色';
@@ -1173,8 +994,6 @@
     state.logoImg = null;
     state.gradOn = false; state.gradA = '#0c2a6b'; state.gradB = '#2563eb'; state.gradDir = 'diag';
     state.eyeStyle = 'square'; state.eyeOn = false; state.eyeColor = '#1d4ed8';
-    state.frameShape = 'square';
-    state.bodyShape = 'square';
     state.exportSize = 600;
     // UI 同步交给 syncStyleUI（与模板套用共用同一份逻辑，不会各改各的）
     syncStyleUI();
@@ -1268,12 +1087,6 @@
     var s = shape + ' · 纠错' + effEc(state);
     if (state.gradOn) s += ' · 渐变';
     if (state.logoImg) s += ' · Logo';
-    if (state.frameShape !== 'square') {
-      s += ' · ' + (window.FrameShapes && window.FrameShapes.name(state.frameShape) || state.frameShape);
-    }
-    if (state.bodyShape && state.bodyShape !== 'square') {
-      s += ' · ' + (window.BodyShapes && window.BodyShapes.name(state.bodyShape) || state.bodyShape);
-    }
     return s;
   }
 
@@ -1313,8 +1126,6 @@
     return {
       fg: state.fg, bg: state.bg, dotStyle: state.dotStyle,
       ecLevel: state.ecLevel, margin: state.margin, logoImg: state.logoImg,
-      frameShape: state.frameShape,
-      bodyShape: state.bodyShape,
       gradOn: state.gradOn, gradA: state.gradA, gradB: state.gradB, gradDir: state.gradDir,
       eyeStyle: state.eyeStyle, eyeOn: state.eyeOn, eyeColor: state.eyeColor,
       exportSize: state.exportSize
@@ -1341,12 +1152,10 @@
     catch (e) { return null; }
 
     var count = qr.size, margin = cfg.margin, total = count + margin * 2;
-    var shapeKey = shapeKeyOf(cfg);
-    var ratio = shapeRatio(cfg);
 
     // 布局与 Canvas 侧同源（solveLayout），只是把像素除以 cell 换回模块单位 ——
     // 这样导出的矢量画幅和预览的像素画幅严格是同一个数，不会各算各的。
-    var L = solveLayout(total, cfg.exportSize || 600, shapeKey, ratio);
+    var L = solveLayout(total, cfg.exportSize || 600);
     var outer = Math.round(L.canvasSize / L.cell * 1e4) / 1e4;   // 画幅（模块单位）
     var pad = (outer - total) / 2;         // 码区在画幅里的居中偏移
 
@@ -1369,8 +1178,7 @@
     }
     var eyeFill = (cfg.eyeOn && contrast(cfg.eyeColor, cfg.bg) >= 3) ? cfg.eyeColor : fillRef;
 
-    // 异形时形状带曲线，crispEdges 会把曲线渲染成锯齿，改用几何精度。
-    var rendering = shapeKey === 'square' ? 'crispEdges' : 'geometricPrecision';
+    var rendering = 'crispEdges';
 
     var out = ['<?xml version="1.0" encoding="UTF-8"?>',
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + outer + ' ' + outer
@@ -1378,14 +1186,8 @@
       + '" preserveAspectRatio="xMidYMid meet" shape-rendering="' + rendering + '">',
       defs];
 
-    // 背景：方形填满；异形只填形状内部，形状以外保持透明
-    // （导出后可以直接贴到海报 / 名片上，不会带一块白底）。
-    if (shapeKey === 'square') {
-      out.push('<rect width="' + outer + '" height="' + outer + '" fill="' + cfg.bg + '"/>');
-    } else {
-      out.push('<path d="' + window.FrameShapes.unitPath(shapeKey)
-        + '" transform="scale(' + outer + ')" fill="' + cfg.bg + '"/>');
-    }
+    // 背景
+    out.push('<rect width="' + outer + '" height="' + outer + '" fill="' + cfg.bg + '"/>');
 
     // 以下所有码点 / 定位图案都在码区局部坐标系里，
     // 平移 pad 之后正好落在形状正中。
@@ -1861,11 +1663,7 @@
   // 这里只开两个只读出口：返回的是字符串 / 数字，外部拿不到 state 引用，改不动内部状态。
   window.QRStudioTest = {
     buildSvg: function () { return buildSvg(getContent(), state); },
-    renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); },
-    shapeKey: function () { return shapeKeyOf(state); },
-    // 码点形状的两个独立读取口（shapeKey 只读外框，别混用）
-    bodyKey: function () { return bodyKeyOf(state); },
-    bodyOn: function () { return bodyOn(state); }
+    renderInfo: function () { return renderTo(document.createElement('canvas'), getContent(), state); }
   };
 
   // ---------- 初始化 ----------
