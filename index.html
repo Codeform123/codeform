@@ -1114,43 +1114,6 @@
           </div>
         </div>
 
-        <!-- 组：定位图案 -->
-        <div class="group">
-          <div class="group-label">定位图案</div>
-          <div class="field" style="margin-bottom:18px">
-            <label>形状 <span style="color:var(--ink-4);font-weight:400">（三个角的回形框）</span></label>
-            <div class="seg" id="eyeStyle">
-              <button class="active" data-v="square">方形</button>
-              <button data-v="rounded">圆角</button>
-              <button data-v="dot">圆点</button>
-            </div>
-          </div>
-          <div class="grad-toggle" style="margin-bottom:14px">
-            <div>
-              <div class="lbl-t">独立配色</div>
-              <div class="lbl-s">让定位图案与码点颜色不同</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="eyeOn">
-              <span class="track"></span>
-            </label>
-          </div>
-          <div class="grad-row" id="eyeRow">
-            <div class="field">
-              <label>定位图案颜色</label>
-              <div class="swatches" id="eyeSwatches">
-                <input type="color" id="eyeColor" value="#1d4ed8">
-                <div class="sw sel" data-c="#1d4ed8" data-tone="dark" style="background:#1d4ed8"></div>
-                <div class="sw" data-c="#0e7490" data-tone="dark" style="background:#0e7490"></div>
-                <div class="sw" data-c="#6d28d9" data-tone="dark" style="background:#6d28d9"></div>
-                <div class="sw" data-c="#be123c" data-tone="dark" style="background:#be123c"></div>
-                <div class="sw" data-c="#0a0c12" data-tone="dark" style="background:#0a0c12"></div>
-                <div class="sw" data-c="#ffffff" data-tone="light" style="background:#ffffff"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 组：细节 -->
         <div class="group">
           <div class="group-label">细节</div>
@@ -1397,7 +1360,6 @@ https://example.com/3,产品三
   }
   initSwatchTone('fgSwatches');
   initSwatchTone('bgSwatches');
-  initSwatchTone('eyeSwatches');
 
   // 1. 滑杆渐变填充
   var range = document.getElementById('margin');
@@ -1422,8 +1384,7 @@ https://example.com/3,产品三
     canvas.classList.add('pulse');
   }
   var pulseIds = ['fgColor', 'bgColor', 'dotStyle', 'ecLevel', 'margin',
-    'gradOn', 'gradA', 'gradB', 'gradDir', 'eyeOn', 'eyeColor', 'eyeStyle',
-    'gradPresets', 'eyeSwatches', 'sizes'];
+    'gradOn', 'gradA', 'gradB', 'gradDir', 'gradPresets', 'sizes'];
   pulseIds.forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', pulse);
