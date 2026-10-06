@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码扫不出来怎么排查？8 个常见原因与解法 — 码方二维码</title>
+<meta name="description" content="二维码扫不出来？按顺序排查这 8 个原因：对比度不足、静区被裁、尺寸太小、Logo 遮挡、颜色反相、反光、内容过长、纠错等级过低。附判断技巧，快速定位问题。">
+<meta name="keywords" content="二维码扫不出来,二维码扫不了,二维码识别失败,二维码不显示,二维码模糊,二维码美化后扫不出,二维码对比度">
+<link rel="canonical" href="https://mafangqr.com/guides/qr-code-not-scanning">
+<meta name="theme-color" content="#0a0c12">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="二维码扫不出来怎么排查？8 个常见原因">
+<meta property="og:description" content="按顺序排查对比度、静区、尺寸、Logo 遮挡等问题，附快速判断技巧。">
+<meta property="og:url" content="https://mafangqr.com/guides/qr-code-not-scanning">
+<meta property="og:image" content="https://mafangqr.com/brand/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="码方二维码">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mafangqr.com/brand/og-cover.png">
+
+<link rel="icon" type="image/svg+xml" href="../brand/favicon.svg">
+<link rel="apple-touch-icon" href="../brand/apple-touch-icon.png">
+<link rel="preload" href="../fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="guides.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "二维码扫不出来怎么排查？8 个常见原因与解法",
+      "description": "按顺序排查二维码无法识别的原因：对比度、静区、尺寸、Logo 遮挡、颜色反相、反光、内容长度、纠错等级。",
+      "inLanguage": "zh-CN",
+      "datePublished": "2026-10-06",
+      "dateModified": "2026-10-06",
+      "author": { "@type": "Organization", "name": "码方二维码 Codeform", "url": "https://mafangqr.com/" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "码方二维码 Codeform",
+        "logo": { "@type": "ImageObject", "url": "https://mafangqr.com/brand/icon-512.png", "width": 512, "height": 512 }
+      },
+      "mainEntityOfPage": { "@type": "WebPage", "@id": "https://mafangqr.com/guides/qr-code-not-scanning" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://mafangqr.com/" },
+        { "@type": "ListItem", "position": 2, "name": "使用教程", "item": "https://mafangqr.com/guides/" },
+        { "@type": "ListItem", "position": 3, "name": "二维码扫不出来排查" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "为什么美化过的二维码容易扫不出来？",
+          "acceptedAnswer": { "@type": "Answer", "text": "美化的主要风险是降低对比度和破坏定位图案。二维码靠明暗差异识别，前景与背景颜色太接近会导致识别失败；此外三个角上的定位方块如果被圆角化或变色过度，扫描器就无法定位。保持高对比度、不修改定位图案，通常就能兼顾美观与可用。" }
+        },
+        {
+          "@type": "Question",
+          "name": "二维码能反着来吗？白底黑码换成黑底白码可以吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "可以，但要谨慎。部分扫描器默认假设深色模块在浅色背景上，反相后识别率会下降，尤其在光线不足时。如果必须反相，建议提高纠错等级并充分实机测试。" }
+        },
+        {
+          "@type": "Question",
+          "name": "提高纠错等级能让二维码更好扫吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "能提高容错能力，但有代价。纠错等级越高，同样内容需要的模块越多，二维码越密集，反而可能更难扫。对普通场景，M 级是较好的平衡；中心带 Logo 时建议用 H 级。" }
+        },
+        {
+          "@type": "Question",
+          "name": "屏幕上显示的二维码扫不出来是什么原因？",
+          "acceptedAnswer": { "@type": "Answer", "text": "常见原因是屏幕亮度太低、屏幕反光，或显示尺寸过小。把屏幕亮度调到最高、关闭自动亮度、避免灯光直射屏幕，并适当放大二维码，通常就能解决。" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="g-top">
+  <div class="g-top-in">
+    <a class="g-brand" href="/">
+      <img src="../brand/favicon.svg" alt="码方二维码" width="26" height="26">
+      码方二维码
+    </a>
+    <a class="g-cta" href="/">免费生成二维码 →</a>
+  </div>
+</header>
+
+<main class="g-wrap">
+
+  <nav class="g-crumb" aria-label="面包屑">
+    <a href="/">首页</a><span class="sp">/</span>
+    <a href="./">使用教程</a><span class="sp">/</span>
+    <span>扫不出来排查</span>
+  </nav>
+
+  <h1>二维码扫不出来怎么排查？8 个常见原因</h1>
+
+  <p class="g-lead">
+    二维码看着挺正常，手机却死活扫不出来 —— 这种情况多半不是「手机不行」，
+    而是二维码本身踩了某个固定的坑。下面按<strong>最容易出问题的顺序</strong>排列，
+    前面几条命中率最高，从上往下查最快。
+  </p>
+
+  <div class="g-meta">
+    <span>更新于 2026-10-06</span><span class="dot"></span>
+    <span>约 6 分钟读完</span><span class="dot"></span>
+    <span>附判断技巧</span>
+  </div>
+
+  <h2>先做这一步：判断是「码的问题」还是「数据的问题」</h2>
+
+  <p>
+    在开始逐项排查之前，先花 10 秒做这个判断，能帮你省掉一半时间：
+  </p>
+
+  <div class="note">
+    <p><b>手机能识别出二维码，但内容不对 / 连不上 / 打不开</b><br>
+    → 说明<strong>图案本身是好的</strong>，问题在数据内容。回生成器检查填的信息，
+    不用改样式或尺寸。</p>
+    <p style="margin-top:12px"><b>手机完全没反应，连「识别到二维码」的提示都没有</b><br>
+    → 说明<strong>图案本身有问题</strong>，往下逐条排查。</p>
+  </div>
+
+  <h2>原因一：对比度不足（最常见的头号杀手）</h2>
+
+  <p>
+    二维码的识别原理是「读明暗」：扫描器把画面转成黑白，
+    再根据黑白块的分布还原数据。所以<strong>前景色和背景色必须有足够差异</strong>。
+  </p>
+
+  <p>
+    很多人美化时选了一组"好看"的配色 —— 浅蓝配浅紫、莫兰迪灰配米白，
+    人眼看很舒服，但转成黑白之后几乎是一片灰，扫描器就完全读不出任何信息。
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>配色方案</th><th>是否可用</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>黑码 + 白底</td><td>✅ 最稳</td><td>标准的行业默认方案</td></tr>
+      <tr><td>深蓝码 + 白底</td><td>✅ 可用</td><td>深色系基本都行</td></tr>
+      <tr><td>深色码 + 浅黄底</td><td>✅ 可用</td><td>对比度够就没问题</td></tr>
+      <tr><td>浅蓝码 + 浅紫底</td><td>❌ 危险</td><td>明度接近，转灰度后糊成一片</td></tr>
+      <tr><td>灰码 + 白底</td><td>⚠️ 看深度</td><td>中灰以下才可用，浅灰不行</td></tr>
+      <tr><td>黄码 + 白底</td><td>❌ 不行</td><td>黄色明度太高，等于浅色码</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note ok">
+    <p><b>工具能帮你挡一下：</b>码方二维码内置了对比度检测，
+    当颜色搭配过浅时会给出提示。看到提示就别硬来，换一组配色。
+    但检测只是参考 —— 最终还是要用真机扫一次才算数。</p>
+  </div>
+
+  <h2>原因二：静区（白边）被裁掉或占用了</h2>
+
+  <p>
+    二维码四周必须有空白，标准要求<strong>至少 4 个模块宽</strong>。
+    这块空白叫静区，是扫描器用来确定"码的边界在哪"的依据。
+  </p>
+
+  <p>常见的破坏方式：</p>
+
+  <ul>
+    <li>设计排版时为省空间，把二维码紧贴到其他元素旁边或页面边缘</li>
+    <li>在二维码下方压了一行「扫码关注我们」的文字，挤压了底部白边</li>
+    <li>把二维码放进一个有色卡片里，卡片底色不是白（也不足够浅）</li>
+    <li>下载后手动裁剪图片，把白边一起裁掉了</li>
+  </ul>
+
+  <div class="note warn">
+    <p><b>修法：</b>把二维码当成一个独立的整体元素使用，四周留出明显空白。
+    宁可让二维码小一点，也不要牺牲白边。这一条比尺寸更容易被忽略，
+    但造成的失败率反而更高。</p>
+  </div>
+
+  <h2>原因三：印刷或显示尺寸太小</h2>
+
+  <p>
+    距离和尺寸是配套的。同一个二维码在桌面上扫码没问题，
+    印成 1.5 厘米贴到墙上就会失败。
+  </p>
+
+  <p>
+    判断标准很简单：<strong>手机凑到正常扫码距离时，二维码是否占到取景框的 1/3 以上</strong>。
+    如果要在画面里找半天才能对准，那就是太小了。
+  </p>
+
+  <p>
+    具体该印多大，可以查<a href="qr-code-print-size">二维码打印尺寸对照表</a>。
+    简单记：名片 2.5–3 cm，台卡 4–5 cm，墙面 8–10 cm，海报 15 cm 以上。
+  </p>
+
+  <h2>原因四：中心 Logo 太大，挡住了关键区域</h2>
+
+  <p>
+    在二维码中心放 Logo 是很常见的做法，但尺寸没控制好就会出问题。
+  </p>
+
+  <p>
+    二维码背后有纠错机制（类似校验和），容许多达 30% 的区域被遮挡
+    （H 级纠错时）。但这个额度<strong>不是让你随便用的</strong>：
+  </p>
+
+  <ul>
+    <li>Logo 面积建议控制在二维码总面积的 <strong>20% 以内</strong></li>
+    <li>中心区域虽然容错最高，但仍要配合提高纠错等级到 H</li>
+    <li>Logo 本身如果带白边或背景色，实际遮挡面积会更大，要算进去</li>
+    <li>三个角上的定位方块<strong>绝对不能</strong>被覆盖</li>
+  </ul>
+
+  <div class="note">
+    <p><b>码方的处理：</b>上传 Logo 后会自动把纠错等级提升到 H，
+    这是保证可扫性的必要措施。如果你改用其他工具，记得手动把纠错设到 H。</p>
+  </div>
+
+  <h2>原因五：颜色反相（浅码 + 深底）</h2>
+
+  <p>
+    黑底白码看起来更现代、更酷，但很多扫描器默认假设是<strong>深色模块在浅色背景上</strong>。
+  </p>
+
+  <p>
+    反相后，一部分扫描器仍能识别（它们会自动检测并反转），
+    但识别速度和成功率都会下降，在光线不足时尤其明显。
+  </p>
+
+  <p>
+    如果品牌视觉确实要求深底，建议：
+  </p>
+
+  <ul>
+    <li>把纠错等级提到 Q 或 H</li>
+    <li>确保明暗对比足够强（比如深黑底配纯白码，而不是深灰配浅灰）</li>
+    <li>务必用多台手机、在真实使用光线下实测</li>
+  </ul>
+
+  <h2>原因六：反光、污损或曲面变形</h2>
+
+  <p>
+    这一条属于物理环境问题，但同样高频：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>问题</th><th>表现</th><th>处理</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>材质反光</td><td>扫码时屏幕上出现亮斑，覆盖部分码区</td><td>改用哑光材质，或调整贴的位置避开光源直射</td></tr>
+      <tr><td>贴面起皱 / 曲面</td><td>部分模块被拉伸变形</td><td>避免贴在圆柱面或折角处；用平整基材</td></tr>
+      <tr><td>磨损污损</td><td>使用一段时间后逐渐扫不出</td><td>提高纠错等级到 Q 或 H；加保护膜</td></tr>
+      <tr><td>屏幕反光</td><td>手机上显示时扫不出</td><td>屏幕亮度调最高，避开顶灯直射</td></tr>
+    </tbody>
+  </table>
+
+  <h2>原因七：内容太长导致模块过密</h2>
+
+  <p>
+    二维码的矩阵大小是随内容长度增长的。内容越长，格子越多，
+    在同样的印刷面积里每个格子就越小 —— 越小的格子越容易在印刷或拍摄时糊掉。
+  </p>
+
+  <p>
+    如果你的网址很长（尤其带一堆跟踪参数的那种），可以试试：
+  </p>
+
+  <ul>
+    <li>用短链接服务压缩一下，能显著减少模块数量</li>
+    <li>或者把二维码印大一些</li>
+    <li>去掉 URL 里不必要的参数（<code>?utm_source=...</code> 这类）</li>
+  </ul>
+
+  <h2>原因八：纠错等级设置不当</h2>
+
+  <p>
+    纠错等级不是"越高越好"。它有个反直觉的权衡：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>等级</th><th>容错能力</th><th>代价</th><th>适合场景</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>L</td><td>约 7%</td><td>矩阵最稀疏</td><td>屏幕显示、环境理想</td></tr>
+      <tr><td>M</td><td>约 15%</td><td>平衡</td><td>普通印刷，默认推荐</td></tr>
+      <tr><td>Q</td><td>约 25%</td><td>矩阵较密</td><td>易磨损、有油污的场景</td></tr>
+      <tr><td>H</td><td>约 30%</td><td>矩阵最密</td><td>带 Logo，或环境恶劣</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    注意右边那列代价：<strong>等级越高，同样内容需要的模块越多</strong>。
+    所以在二维码已经很小的情况下，盲目升到 H 反而会让它更难扫 ——
+    格子更密了。普通场景用 M 就够了。
+  </p>
+
+  <div class="g-cta-card">
+    <h3>用真机实测一轮再定稿</h3>
+    <p>码方内置扫码模式，可以把你生成的码导出来再传回去解码，快速验证图案本身是否可读。</p>
+    <a class="g-btn" href="/?mode=scan">试试本地扫码解码 →</a>
+  </div>
+
+  <h2>一张排查清单</h2>
+
+  <p>
+    下次遇到扫不出来，按这个顺序过一遍，基本都能定位到：
+  </p>
+
+  <ol class="steps">
+    <li><b>先判断是图案问题还是数据问题</b>手机有没有识别出这是二维码？</li>
+    <li><b>查对比度</b>把二维码转成黑白，看看前景背景是不是还分得清。</li>
+    <li><b>查白边</b>四周有没有足够空白？有没有被裁掉或被压字？</li>
+    <li><b>查尺寸</b>在当前扫码距离下，二维码够不够大？</li>
+    <li><b>查 Logo</b>有没有超过总面积 20%？纠错是不是 H？</li>
+    <li><b>查环境</b>有没有反光、变形、污损、屏幕太暗？</li>
+    <li><b>查内容</b>是不是太长了？能不能缩短？</li>
+    <li><b>换台手机再测</b>排除单台设备的问题，同时验证跨平台兼容性。</li>
+  </ol>
+
+  <section class="g-rel">
+    <h2>相关教程</h2>
+    <ul>
+      <li><a href="qr-code-print-size">二维码打印多大才扫得出来？尺寸对照表<span>距离换算、静区要求、分辨率计算</span></a></li>
+      <li><a href="wifi-qr-code">WiFi 二维码怎么制作？手机一扫自动连<span>含访客网络安全建议</span></a></li>
+      <li><a href="vcard-qr-code">名片二维码怎么做？一扫直接存通讯录<span>vCard 格式与转义坑</span></a></li>
+      <li><a href="qr-code-expire">二维码会过期吗？静态码和动态码的区别<span>什么时候能用一辈子</span></a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="g-foot">
+  <a href="/">码方二维码 Codeform</a><span class="sp">·</span>纯本地生成，内容不上传
+  <br>
+  <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
+</footer>
+
+</body>
+</html>

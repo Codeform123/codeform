@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码打印多大才扫得出来？尺寸对照表与距离换算 — 码方二维码</title>
+<meta name="description" content="二维码打印尺寸对照表：名片、台卡、墙面、海报各该做多大？含扫码距离换算公式、静区（白边）要求与印刷最低分辨率。附 SVG 矢量导出建议，放大不失真。">
+<meta name="keywords" content="二维码打印尺寸,二维码多大,二维码尺寸对照表,二维码印刷大小,二维码最小尺寸,二维码静区,二维码清晰度">
+<link rel="canonical" href="https://mafangqr.com/guides/qr-code-print-size">
+<meta name="theme-color" content="#0a0c12">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="二维码打印多大才扫得出来？尺寸对照表">
+<meta property="og:description" content="含扫码距离换算公式、静区要求与印刷最低分辨率。">
+<meta property="og:url" content="https://mafangqr.com/guides/qr-code-print-size">
+<meta property="og:image" content="https://mafangqr.com/brand/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="码方二维码">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mafangqr.com/brand/og-cover.png">
+
+<link rel="icon" type="image/svg+xml" href="../brand/favicon.svg">
+<link rel="apple-touch-icon" href="../brand/apple-touch-icon.png">
+<link rel="preload" href="../fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="guides.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "二维码打印多大才扫得出来？尺寸对照表与距离换算",
+      "description": "二维码打印尺寸对照表，含扫码距离换算公式、静区要求与印刷最低分辨率。",
+      "inLanguage": "zh-CN",
+      "datePublished": "2026-10-06",
+      "dateModified": "2026-10-06",
+      "author": { "@type": "Organization", "name": "码方二维码 Codeform", "url": "https://mafangqr.com/" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "码方二维码 Codeform",
+        "logo": { "@type": "ImageObject", "url": "https://mafangqr.com/brand/icon-512.png", "width": 512, "height": 512 }
+      },
+      "mainEntityOfPage": { "@type": "WebPage", "@id": "https://mafangqr.com/guides/qr-code-print-size" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://mafangqr.com/" },
+        { "@type": "ListItem", "position": 2, "name": "使用教程", "item": "https://mafangqr.com/guides/" },
+        { "@type": "ListItem", "position": 3, "name": "二维码打印尺寸" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "二维码最小能印多小？",
+          "acceptedAnswer": { "@type": "Answer", "text": "实用下限约为 2×2 厘米，这是手机近距离手持扫描的极限。再小就需要极好的印刷精度和充足光线，日常印刷不建议低于这个尺寸。名片上通常用 2.5 至 3 厘米。" }
+        },
+        {
+          "@type": "Question",
+          "name": "打印二维码应该用多大的分辨率？",
+          "acceptedAnswer": { "@type": "Answer", "text": "推荐直接导出 SVG 矢量格式，任意尺寸都不失真。若必须用位图 PNG，印刷尺寸（厘米）乘以 300 再除以 2.54，即为所需像素数。例如印 5 厘米宽需要约 590 像素。" }
+        },
+        {
+          "@type": "Question",
+          "name": "二维码四周的空白要留多少？",
+          "acceptedAnswer": { "@type": "Answer", "text": "至少留出 4 个模块（二维码最小方格）宽度的空白，专业上称为静区或 quiet zone。把白边裁掉或压上文字，是导致扫码失败最常见的原因之一。" }
+        },
+        {
+          "@type": "Question",
+          "name": "内容越长，二维码就要印得越大吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "是的。内容越长，二维码的模块数量越多、单个模块越小，要达到同样的识别效果就需要更大的印刷尺寸。这就是短链接能提升扫码成功率的原因。" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="g-top">
+  <div class="g-top-in">
+    <a class="g-brand" href="/">
+      <img src="../brand/favicon.svg" alt="码方二维码" width="26" height="26">
+      码方二维码
+    </a>
+    <a class="g-cta" href="/">免费生成二维码 →</a>
+  </div>
+</header>
+
+<main class="g-wrap">
+
+  <nav class="g-crumb" aria-label="面包屑">
+    <a href="/">首页</a><span class="sp">/</span>
+    <a href="./">使用教程</a><span class="sp">/</span>
+    <span>二维码打印尺寸</span>
+  </nav>
+
+  <h1>二维码打印多大才扫得出来？尺寸对照表</h1>
+
+  <p class="g-lead">
+    二维码印太小，客户举着手机凑半天扫不出来，最后还得问你「能不能发我个链接」——
+    这一张海报就白做了。尺寸是二维码印刷里最不该出错、却最常出错的地方。
+    下面给出一套可以直接照着用的对照表和换算方法。
+  </p>
+
+  <div class="g-meta">
+    <span>更新于 2026-10-06</span><span class="dot"></span>
+    <span>约 5 分钟读完</span><span class="dot"></span>
+    <span>含距离换算公式</span>
+  </div>
+
+  <h2>先记住一句话：距离决定尺寸</h2>
+
+  <p>
+    二维码该印多大，本质上不是设计问题，而是<strong>扫码距离</strong>问题。
+    人们扫码时手机镜头到二维码的距离越远，二维码就需要印得越大。
+  </p>
+
+  <p>
+    行业里通用的一条经验法则是：<strong>每 10 厘米的扫码距离，对应约 1 厘米的二维码边长</strong>。
+    这个比例在多数手机摄像头下都能稳定工作。
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>扫码距离</th><th>建议边长</th><th>典型场景</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>10 – 20 cm</td><td>2 – 3 cm</td><td>名片、产品标签、门票</td></tr>
+      <tr><td>30 – 50 cm</td><td>3 – 5 cm</td><td>餐桌台卡、前台立牌、菜单</td></tr>
+      <tr><td>60 – 100 cm</td><td>6 – 10 cm</td><td>墙面贴纸、会议室门口、电梯间</td></tr>
+      <tr><td>1 – 3 m</td><td>10 – 30 cm</td><td>海报、展架、橱窗</td></tr>
+      <tr><td>3 m 以上</td><td>30 cm 以上</td><td>大型广告牌、户外导视</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><b>为什么不是固定尺寸？</b>因为手机摄像头有最佳对焦距离。
+    靠太近会失焦，离太远则单个模块在画面里只占几个像素，不足以识别。
+    按距离选尺寸，比背某个"标准大小"要可靠得多。</p>
+  </div>
+
+  <h2>一张表解决 90% 的场景</h2>
+
+  <p>
+    如果不想算，直接按用途查这张表。这是把上面的公式落到具体场景后的结果：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>用途</th><th>建议边长</th><th>注意事项</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>名片二维码</td>
+        <td><strong>2.5 – 3 cm</strong></td>
+        <td>低于 2.5 cm 就不太稳，尤其名片纸张常是哑光或带纹理</td>
+      </tr>
+      <tr>
+        <td>产品包装标签</td>
+        <td><strong>2 – 3 cm</strong></td>
+        <td>曲面包装要避开折角位置，否则扫码时产生反光变形</td>
+      </tr>
+      <tr>
+        <td>餐桌台卡 / 点餐码</td>
+        <td><strong>4 – 5 cm</strong></td>
+        <td>客人坐着伸手扫码，且餐厅灯光通常偏暗</td>
+      </tr>
+      <tr>
+        <td>门店海报 / 橱窗</td>
+        <td><strong>15 cm 以上</strong></td>
+        <td>隔玻璃或隔着一定距离扫，务必先实地测</td>
+      </tr>
+      <tr>
+        <td>展会展架</td>
+        <td><strong>20 cm 以上</strong></td>
+        <td>人流量大、角度刁钻，建议顶部放主码、腰部放备用码</td>
+      </tr>
+      <tr>
+        <td>会议室 / 电梯间贴纸</td>
+        <td><strong>8 – 10 cm</strong></td>
+        <td>人流经过时随手扫，位置要在视线水平高度附近</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="g-cta-card">
+    <h3>用矢量格式导出，放大多少倍都不糊</h3>
+    <p>码方支持导出 SVG 矢量文件，印刷任意尺寸都清晰 —— 这正是印刷场景该用的格式。</p>
+    <a class="g-btn" href="/">打开二维码生成器 →</a>
+  </div>
+
+  <h2>印刷该用什么格式和分辨率</h2>
+
+  <p>
+    这是第二个高频问题。答案很简单：<strong>能用 SVG 就别用 PNG</strong>。
+  </p>
+
+  <p>
+    SVG 是矢量格式，它记录的是"从哪里到哪里画一条线"，
+    而不是"这个位置放一个黑色像素"。所以无论放大到 A4、A3 还是户外大幅面，
+    边缘永远锐利，不会出现锯齿或模糊。
+  </p>
+
+  <p>
+    如果确实需要位图 PNG（比如某些印刷厂只收 PNG），按这个公式算像素：
+  </p>
+
+  <p><code>所需像素 = 印刷边长（厘米）÷ 2.54 × 300</code></p>
+
+  <p>
+    这里 300 指的是 300 DPI，是印刷品的通用精度标准。举几个例子：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>印刷宽度</th><th>所需像素（300 DPI）</th><th>对应码方导出档位</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>3 cm</td><td>约 355 px</td><td>600 px（够用）</td></tr>
+      <tr><td>5 cm</td><td>约 590 px</td><td>600 px</td></tr>
+      <tr><td>10 cm</td><td>约 1181 px</td><td>2048 px（充足）</td></tr>
+      <tr><td>20 cm</td><td>约 2362 px</td><td>建议改用 SVG</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note warn">
+    <p><b>别指望"放大软件"救场。</b>把一张 300px 的二维码用 PS 放大到 2000px，
+    只会得到边缘模糊的色块 —— 二维码的模块边界一旦模糊，扫描器就可能判错。
+    原始导出尺寸不够，就是真的不够，只能重新导出。</p>
+  </div>
+
+  <h2>静区：最容易被裁掉的致命白边</h2>
+
+  <p>
+    二维码四周的空白区域有个专业名字叫<strong>静区（quiet zone）</strong>。
+    它不是设计师留的美观边距，而是扫描器用来判断"码从哪里开始、到哪里结束"的定位依据。
+  </p>
+
+  <p>
+    标准要求静区宽度<strong>至少等于 4 个模块</strong>。举例来说，
+    如果二维码是一个 25×25 的矩阵，静区就应该有 4 格那么宽。
+  </p>
+
+  <p>
+    常见错误有三个：
+  </p>
+
+  <ul>
+    <li><strong>为了排版美观把白边裁掉</strong>，让二维码紧贴其他元素或页面边缘</li>
+    <li><strong>在静区里放文字或图形</strong>，比如在二维码下面压一行"扫码关注"</li>
+    <li><strong>白边颜色不是白色</strong>，比如底色是浅灰却当成空白处理</li>
+  </ul>
+
+  <p>
+    码方生成的二维码默认已经带好合适的静区宽度，导出时不要裁掉。
+    如果你要自己排版，记住把二维码当成一个整体元素使用，
+    在它四周留出足够的空白再放其他内容。
+  </p>
+
+  <div class="note ok">
+    <p><b>顺手一提：</b>静区和对比度是两件事，但都会影响识别。
+    如果尺寸没问题却依然扫不出，大概率是对比度的问题 ——
+    可以看<a href="qr-code-not-scanning">二维码扫不出来的排查指南</a>。</p>
+  </div>
+
+  <h2>内容长度也会影响尺寸需求</h2>
+
+  <p>
+    这一点经常被忽略：<strong>同样是 3 厘米，内容长的二维码会更难扫</strong>。
+  </p>
+
+  <p>
+    原因在于二维码是固定容量的方格矩阵。内容越长，需要的模块越多，
+    整个矩阵就越大 —— 在有限的 3 厘米里塞进更多格子，
+    意味着每个格子更小、更密，对印刷精度和镜头解析力的要求就更高。
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>内容</th><th>大致矩阵规模</th><th>3 cm 印刷的可扫性</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>短链接（约 25 字符）</td><td>25 × 25</td><td>良好</td></tr>
+      <tr><td>普通网址（约 60 字符）</td><td>33 × 33</td><td>可用</td></tr>
+      <tr><td>长网址带参数（150 字符以上）</td><td>45 × 45 以上</td><td>偏紧，建议放大或缩短链接</td></tr>
+      <tr><td>WiFi 信息（含密码）</td><td>33 × 33 左右</td><td>可用</td></tr>
+      <tr><td>完整名片 vCard</td><td>45 × 45 以上</td><td>建议印 4 cm 以上</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    所以如果条件允许，<strong>把长链接换成短链接</strong>是提升扫码成功率最省事的办法，
+    不需要改任何设计。
+  </p>
+
+  <h2>印刷前必做的两件事</h2>
+
+  <ol class="steps">
+    <li>
+      <b>先打样，再批量</b>
+      别直接印一千张。先用家用打印机打一张，或者屏幕上按实际尺寸显示出来，
+      用手机在预期距离上实测一次。这一步能挡掉绝大多数事故。
+    </li>
+    <li>
+      <b>用两台不同的手机测</b>
+      iPhone 和 Android 的相机算法不同，对边缘情况的容忍度也不一样。
+      两台都能扫出来，才算真的没问题。同时留意环境光线 ——
+      印刷品最终是用在什么光线下，就在那种光线下测。
+    </li>
+  </ol>
+
+  <section class="g-rel">
+    <h2>相关教程</h2>
+    <ul>
+      <li><a href="wifi-qr-code">WiFi 二维码怎么制作？手机一扫自动连<span>含访客网络安全建议</span></a></li>
+      <li><a href="qr-code-not-scanning">二维码扫不出来怎么排查？8 个常见原因<span>对比度、颜色、尺寸、Logo 遮挡逐项检查</span></a></li>
+      <li><a href="qr-code-expire">二维码会过期吗？静态码和动态码的区别<span>什么时候能用一辈子</span></a></li>
+      <li><a href="vcard-qr-code">名片二维码怎么做？一扫直接存通讯录<span>vCard 格式与转义坑</span></a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="g-foot">
+  <a href="/">码方二维码 Codeform</a><span class="sp">·</span>纯本地生成，内容不上传
+  <br>
+  <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
+</footer>
+
+</body>
+</html>

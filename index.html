@@ -913,6 +913,20 @@
     margin: 0; padding: 0 4px 16px; font-size: 13px; line-height: 1.72; color: var(--ink-2);
   }
 
+  /* ================= 使用教程入口 ================= */
+  .guide-list { display: flex; flex-direction: column; gap: 2px; }
+  .guide-list a {
+    display: block; padding: 11px 12px; border-radius: 12px;
+    text-decoration: none; transition: background .2s var(--ease-out);
+  }
+  .guide-list a:hover { background: var(--surface-3); }
+  .guide-list a b {
+    display: block; font-size: 13px; font-weight: 650; color: var(--ink);
+    margin-bottom: 2px; transition: color .18s var(--ease-out);
+  }
+  .guide-list a:hover b { color: var(--accent); }
+  .guide-list a span { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+
   footer {
     text-align: center; margin-top: 52px; font-size: 12.5px; color: var(--ink-3);
     padding-top: 26px; position: relative;
@@ -1467,6 +1481,32 @@ https://example.com/3,产品三
             </button>
             <div class="faq-a"><p>支持。可导出 SVG 矢量格式，放大到任意尺寸都不失真；也可导出最高 2048 像素的 PNG 位图。</p></div>
           </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>使用教程</h2>
+        <div class="guide-list">
+          <a href="guides/wifi-qr-code">
+            <b>WiFi 二维码怎么制作？</b>
+            <span>手机一扫自动连，不用再报密码</span>
+          </a>
+          <a href="guides/qr-code-print-size">
+            <b>二维码打印多大才扫得出来？</b>
+            <span>尺寸对照表与扫码距离换算</span>
+          </a>
+          <a href="guides/qr-code-not-scanning">
+            <b>二维码扫不出来怎么排查？</b>
+            <span>8 个常见原因，按命中率排序</span>
+          </a>
+          <a href="guides/vcard-qr-code">
+            <b>名片二维码怎么做？</b>
+            <span>扫码直接存进通讯录</span>
+          </a>
+          <a href="guides/qr-code-expire">
+            <b>二维码会过期吗？</b>
+            <span>静态码与动态码的区别</span>
+          </a>
         </div>
       </div>
     </div>

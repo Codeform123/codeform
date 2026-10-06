@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码会过期吗？静态码和动态码的区别一次说清 — 码方二维码</title>
+<meta name="description" content="二维码会过期吗？静态码永久有效，动态码依赖服务器可能失效。本文说明两者原理差异、如何判断你手上的码属于哪种、以及什么情况下二维码会变成砖。">
+<meta name="keywords" content="二维码会过期吗,二维码有效期,动态二维码,静态二维码,二维码会失效吗,免费二维码永久有效">
+<link rel="canonical" href="https://mafangqr.com/guides/qr-code-expire">
+<meta name="theme-color" content="#0a0c12">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="二维码会过期吗？静态码和动态码的区别">
+<meta property="og:description" content="静态码永久有效，动态码依赖服务器。如何判断你手上的码属于哪种。">
+<meta property="og:url" content="https://mafangqr.com/guides/qr-code-expire">
+<meta property="og:image" content="https://mafangqr.com/brand/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="码方二维码">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mafangqr.com/brand/og-cover.png">
+
+<link rel="icon" type="image/svg+xml" href="../brand/favicon.svg">
+<link rel="apple-touch-icon" href="../brand/apple-touch-icon.png">
+<link rel="preload" href="../fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="guides.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "二维码会过期吗？静态码和动态码的区别一次说清",
+      "description": "说明静态二维码与动态二维码的原理差异、失效原因与判断方法。",
+      "inLanguage": "zh-CN",
+      "datePublished": "2026-10-06",
+      "dateModified": "2026-10-06",
+      "author": { "@type": "Organization", "name": "码方二维码 Codeform", "url": "https://mafangqr.com/" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "码方二维码 Codeform",
+        "logo": { "@type": "ImageObject", "url": "https://mafangqr.com/brand/icon-512.png", "width": 512, "height": 512 }
+      },
+      "mainEntityOfPage": { "@type": "WebPage", "@id": "https://mafangqr.com/guides/qr-code-expire" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://mafangqr.com/" },
+        { "@type": "ListItem", "position": 2, "name": "使用教程", "item": "https://mafangqr.com/guides/" },
+        { "@type": "ListItem", "position": 3, "name": "二维码会过期吗" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "二维码会过期吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "静态二维码不会过期，它把内容直接编码在图案里，不依赖任何服务器，理论上可以永久使用。动态二维码依赖跳转服务器，如果服务商停运、套餐到期或欠费，二维码就会失效。" }
+        },
+        {
+          "@type": "Question",
+          "name": "怎么判断我手上的二维码是静态还是动态？",
+          "acceptedAnswer": { "@type": "Answer", "text": "把二维码解码看内容。如果直接读到你的原始内容（比如 https://你的域名.com/menu），就是静态码；如果读到的是一串陌生的短链接或第三方域名，那就是动态码，中间有一层跳转。" }
+        },
+        {
+          "@type": "Question",
+          "name": "免费生成的二维码会失效吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "要看生成方式。本地生成的静态码不会失效，与是否付费无关。但如果所谓的免费服务是在服务器上生成的动态码，那么一旦服务商停止运营，码就会失效。" }
+        },
+        {
+          "@type": "Question",
+          "name": "静态二维码的缺点是什么？",
+          "acceptedAnswer": { "@type": "Answer", "text": "内容一旦生成就固定了，无法修改。如果二维码已经印刷出去，改内容就意味着必须重新印刷。另外内容越长二维码越密集，小尺寸印刷时越难扫。" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="g-top">
+  <div class="g-top-in">
+    <a class="g-brand" href="/">
+      <img src="../brand/favicon.svg" alt="码方二维码" width="26" height="26">
+      码方二维码
+    </a>
+    <a class="g-cta" href="/">生成永久有效的码 →</a>
+  </div>
+</header>
+
+<main class="g-wrap">
+
+  <nav class="g-crumb" aria-label="面包屑">
+    <a href="/">首页</a><span class="sp">/</span>
+    <a href="./">使用教程</a><span class="sp">/</span>
+    <span>二维码会过期吗</span>
+  </nav>
+
+  <h1>二维码会过期吗？静态码和动态码的区别一次说清</h1>
+
+  <p class="g-lead">
+    印了一千张菜单二维码，半年后客人扫出来是「该链接已失效」——
+    这种事真的会发生，而且往往在印刷投入已经花掉之后才发现。
+    要避免踩坑，得先搞清一件事：二维码分两种，一种永不过期，一种会。
+  </p>
+
+  <div class="g-meta">
+    <span>更新于 2026-10-06</span><span class="dot"></span>
+    <span>约 4 分钟读完</span><span class="dot"></span>
+    <span>含自查方法</span>
+  </div>
+
+  <h2>结论先说：取决于它是静态还是动态</h2>
+
+  <table class="g-table">
+    <thead>
+      <tr><th></th><th>静态二维码</th><th>动态二维码</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>会不会过期</strong></td><td>不会</td><td>可能，取决于服务器</td></tr>
+      <tr><td><strong>内容存在哪</strong></td><td>图案本身里</td><td>第三方服务器上</td></tr>
+      <tr><td><strong>是否联网</strong></td><td>扫描后直接读取，无需中间服务</td><td>扫描后要跳转一次</td></tr>
+      <tr><td><strong>能否改内容</strong></td><td>不能，改了要重印</td><td>能，后台随时改</td></tr>
+      <tr><td><strong>成本</strong></td><td>免费（本地生成即可）</td><td>通常按月收费</td></tr>
+      <tr><td><strong>能否统计扫码量</strong></td><td>不能</td><td>能</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note ok">
+    <p><b>码方生成的是静态二维码。</b>所有内容直接编码进图案，
+    不经过任何服务器，也没有任何后台可以停掉它。
+    网站哪天关了，你手里那张二维码照样能扫、照样有效 ——
+    因为它本来就不依赖我们。</p>
+  </div>
+
+  <h2>静态码：内容真的写在图案里</h2>
+
+  <p>
+    静态二维码的原理很朴素：它把你要放的内容（网址、文字、WiFi 密码、联系人信息）
+    按照 Reed-Solomon 算法编码成黑白方块，直接画进图片。
+  </p>
+
+  <p>
+    扫码的过程就是<strong>反过来解一遍</strong>：手机读出黑白分布，还原出原始字符串。
+    整个过程中间没有任何网络请求，也没有任何服务器参与。
+  </p>
+
+  <p>
+    所以静态码的性质是：
+  </p>
+
+  <ul>
+    <li><strong>永久有效</strong> —— 只要图案还在、还能被读出来，它就有效</li>
+    <li><strong>断网可用</strong> —— 手机没信号也能扫出来（扫出来之后要访问网址才需要网络）</li>
+    <li><strong>没有中间商</strong> —— 不存在「服务商跑路」这个风险</li>
+    <li><strong>内容写死</strong> —— 这是唯一的代价，改内容必须重新印</li>
+  </ul>
+
+  <h2>动态码：内容存在别人的服务器上</h2>
+
+  <p>
+    动态二维码的图案里编码的不是你的原始网址，而是<strong>一串指向跳转服务的短链接</strong>。
+  </p>
+
+  <p>
+    扫码的流程变成这样：手机读到短链接 → 请求服务商的服务器 →
+    服务器查到「这个短链当前指向 https://你的网站.com/menu」→ 返回跳转。
+  </p>
+
+  <p>
+    多这一层跳转，换来的是「可随时修改内容」和「能统计扫码次数」。
+    对需要频繁换内容的场景确实有用，比如餐厅菜单价格调整。
+  </p>
+
+  <p>
+    但代价也很明确 —— <strong>它多了一个可以死掉的中间环节</strong>。动态码失效的常见原因：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>失效原因</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>服务商停止运营</td><td>公司关停、产品下线，所有已生成的码同时失效</td></tr>
+      <tr><td>套餐到期未续费</td><td>免费额度用完或订阅中断，跳转被停用</td></tr>
+      <tr><td>违反平台规则被封</td><td>内容被判定违规，链接被禁用</td></tr>
+      <tr><td>免费试用期结束</td><td>很多工具用「免费」吸引注册，试用期后停跳</td></tr>
+      <tr><td>账户注销或欠费</td><td>账户状态异常导致服务中断</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note warn">
+    <p><b>印刷品上的码尤其要小心。</b>传单、菜单、包装、门店招牌这些东西，
+    一旦印出去就很难回收。如果用的是动态码，等于把这份印刷投资押在了
+    第三方服务商的持续经营上 —— 风险不对称：省下的是每月几十块，
+    可能损失的是几千块的印刷费。</p>
+  </div>
+
+  <h2>三十秒自查：我的码是哪种？</h2>
+
+  <p>
+    手上已经有一个二维码，想知道它会不会过期，最简单的办法是<strong>解码看内容</strong>：
+  </p>
+
+  <ol class="steps">
+    <li>
+      <b>用扫码工具读出二维码的原始内容</b>
+      大多数手机相机扫出来会直接显示链接，或者用任意二维码识别 App 读一遍。
+      码方的<a href="/?mode=scan">扫码模式</a>也能做这件事 ——
+      上传图片就能看到里面到底是什么。
+    </li>
+    <li>
+      <b>看这个内容是不是你的原始地址</b>
+      读到 <code>https://你的域名.com/menu</code> → <strong>静态码</strong>，安全。<br>
+      读到 <code>https://某短链服务.com/aB3xK9</code> 这种陌生的、和你的业务无关的域名
+      → <strong>动态码</strong>，需要确认服务商是否长期可靠。
+    </li>
+    <li>
+      <b>判断依据</b>
+      静态码解出来的内容你能一眼看懂是什么意思；动态码解出来的通常是一串看不懂的短链。
+    </li>
+  </ol>
+
+  <div class="g-cta-card">
+    <h3>想确认手上的码是什么内容？</h3>
+    <p>用本地扫码模式传上去，直接在浏览器里解码，图片不会上传到任何服务器。</p>
+    <a class="g-btn" href="/?mode=scan">打开本地扫码解码 →</a>
+  </div>
+
+  <h2>那什么时候该用动态码</h2>
+
+  <p>
+    静态码不是无条件的正确答案。动态码在特定场景确实更合适：
+  </p>
+
+  <table class="g-table">
+    <thead>
+      <tr><th>场景</th><th>推荐</th><th>理由</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>内容需要频繁更换</td><td>动态码</td><td>比如每周更新的活动页，改了不用重印</td></tr>
+      <tr><td>需要统计扫码数据</td><td>动态码</td><td>静态码无法统计</td></tr>
+      <tr><td>印刷量大且分散</td><td>动态码</td><td>出错时能补救，不用收回所有物料</td></tr>
+      <tr><td>名片、WiFi 码</td><td><strong>静态码</strong></td><td>信息基本不变，没必要引入依赖</td></tr>
+      <tr><td>产品包装、说明书</td><td><strong>静态码</strong></td><td>生命周期长，越稳定越好</td></tr>
+      <tr><td>门店招牌、桌贴</td><td><strong>静态码</strong></td><td>更换成本高，应追求长期可靠</td></tr>
+      <tr><td>个人信息、联系方式</td><td><strong>静态码</strong></td><td>隐私上更安全，数据不在第三方手里</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><b>一个折中方案：</b>如果你确实需要动态更新能力，又想降低风险，
+    可以<strong>静态码指向你自己控制的域名</strong>，用自己域名下的重定向来跳转。
+    这样服务商换成谁都行，二维码本身永远有效。</p>
+  </div>
+
+  <h2>总结成一句话</h2>
+
+  <p>
+    <strong>二维码本身不会过期，"二维码背后的服务"会过期。</strong>
+  </p>
+
+  <p>
+    静态码把一切都封存在图案里，所以它和互联网上的任何服务都无关 ——
+    这是它最大的优点，也是它无法修改内容的根本原因。
+    判断风险只需要问自己一个问题：<strong>十年后，这个图案还能被读懂吗？</strong>
+    静态码的答案是能，动态码的答案则取决于那个时候服务器还在不在。
+  </p>
+
+  <section class="g-rel">
+    <h2>相关教程</h2>
+    <ul>
+      <li><a href="wifi-qr-code">WiFi 二维码怎么制作？手机一扫自动连<span>含访客网络安全建议</span></a></li>
+      <li><a href="qr-code-print-size">二维码打印多大才扫得出来？尺寸对照表<span>距离换算与静区要求</span></a></li>
+      <li><a href="qr-code-not-scanning">二维码扫不出来怎么排查？8 个常见原因<span>对比度、Logo、反相等逐项检查</span></a></li>
+      <li><a href="vcard-qr-code">名片二维码怎么做？一扫直接存通讯录<span>vCard 格式与转义坑</span></a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="g-foot">
+  <a href="/">码方二维码 Codeform</a><span class="sp">·</span>纯本地生成，内容不上传
+  <br>
+  <a href="./">全部教程</a><span class="sp">|</span><a href="/">打开生成器</a>
+</footer>
+
+</body>
+</html>

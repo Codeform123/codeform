@@ -1600,21 +1600,40 @@
     });
   })();
 
-  // ---------- URL 参数：支持 PWA 快捷方式 ----------
-  // manifest.shortcuts 里声明了 /?mode=batch 与 /?mode=scan，
-  // 从主屏长按图标可直达对应模式。
-  (function initShortcut() {
-    var m = new URLSearchParams(location.search).get('mode');
-    if (m !== 'batch' && m !== 'scan') return;
+  // ---------- URL 参数：支持深链接与 PWA 快捷方式 ----------
+  // ?mode=batch / ?mode=scan  —— 来自 manifest.shortcuts，主屏长按图标直达
+  // ?type=wifi 等 8 种内容类型 —— 来自 guides/ 下的教程页，让「立即生成 WiFi 码」
+  //   这类按钮点进来就落在正确的输入面板上，而不是停在默认的「文本」。
+  // 实现上都走「点一下对应按钮」，复用既有的切换逻辑，
+  // 避免在这里重写一遍状态同步（那是 bug 的温床）。
+  (function initDeepLink() {
+    var qs = new URLSearchParams(location.search);
+    var mode = qs.get('mode');
+    var type = qs.get('type');
 
-    function apply() {
-      var btn = document.querySelector('#modeSwitch button[data-mode="' + m + '"]');
-      if (!btn) return false;
-      btn.click();
-      return true;
-    }
-    // DOM 与 render() 都就绪后再切，避免被随后的首屏渲染覆盖回去
-    setTimeout(apply, 60);
+    // 内容类型：合法值白名单，防止把任意字符串塞进 state.type
+    var VALID_TYPES = ['text', 'url', 'wifi', 'vcard', 'sms', 'tel', 'mail', 'geo'];
+
+    setTimeout(function () {
+      if (type && VALID_TYPES.indexOf(type) >= 0) {
+        var tab = document.querySelector('#tabs .tab[data-type="' + type + '"]');
+        if (tab) tab.click();
+      }
+      if (mode === 'batch' || mode === 'scan') {
+        var btn = document.querySelector('#modeSwitch button[data-mode="' + mode + '"]');
+        if (btn) btn.click();
+      }
+      // 深链接生效后把参数从地址栏抹掉，避免用户刷新时反复触发、
+      // 也避免他们把带参数的临时地址当成正式链接分享出去。
+      if (type || mode) {
+        try {
+          var u = new URL(location.href);
+          u.searchParams.delete('type');
+          u.searchParams.delete('mode');
+          history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+        } catch (err) { /* 老浏览器不支持就算了，不影响功能 */ }
+      }
+    }, 60);
   })();
 
   // ---------- 初始化 ----------

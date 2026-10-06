@@ -13,7 +13,7 @@
    对本站这种小体积静态资源完全可以接受。
    ============================================================ */
 
-var VERSION = 'codeform-v2';
+var VERSION = 'codeform-v3';
 var CACHE = VERSION + '-assets';
 
 /* 预缓存清单：只放「离线时必需」的资源。
@@ -35,7 +35,15 @@ var PRECACHE = [
   '/brand/favicon-32.png',
   '/brand/apple-touch-icon.png',
   '/brand/icon-256.png',
-  '/brand/icon-512.png'
+  '/brand/icon-512.png',
+  /* 教程页也预缓存：用户离线时仍能翻阅（阅读类内容尤其适合离线） */
+  '/guides/',
+  '/guides/guides.css',
+  '/guides/wifi-qr-code',
+  '/guides/qr-code-print-size',
+  '/guides/qr-code-not-scanning',
+  '/guides/vcard-qr-code',
+  '/guides/qr-code-expire'
 ];
 
 /* ---------- 安装：预缓存 ---------- */
